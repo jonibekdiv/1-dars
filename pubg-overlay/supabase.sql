@@ -1,0 +1,41 @@
+-- Supabase SQL Editor'da bir marta ishga tushiring.
+
+create table if not exists public.overlay_state (
+  room text not null,
+  key text not null,
+  data jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
+  primary key (room, key)
+);
+
+-- Kimlar o'zgartira oladi: shu jadvaldagi email egalari
+create table if not exists public.overlay_admins (email text primary key);
+
+alter table public.overlay_state enable row level security;
+alter table public.overlay_admins enable row level security; -- API orqali hech kim o'qiy/yoza olmaydi
+
+create or replace function public.is_overlay_admin() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1 from public.overlay_admins a
+    where lower(a.email) = lower(auth.jwt() ->> 'email')
+  );
+$$;
+
+drop policy if exists "overlay read" on public.overlay_state;
+drop policy if exists "overlay insert" on public.overlay_state;
+drop policy if exists "overlay update" on public.overlay_state;
+
+-- Overlay (OBS) hammaga ochiq o'qiydi
+create policy "overlay read" on public.overlay_state for select using (true);
+-- Faqat adminlar yozadi
+create policy "overlay insert" on public.overlay_state for insert to authenticated
+  with check (public.is_overlay_admin());
+create policy "overlay update" on public.overlay_state for update to authenticated
+  using (public.is_overlay_admin()) with check (public.is_overlay_admin());
+
+-- Real vaqt
+alter publication supabase_realtime add table public.overlay_state;
+
+-- Admin emailingizni qo'shing (Authentication > Users da shu email bilan foydalanuvchi yarating):
+-- insert into public.overlay_admins (email) values ('siz@example.com');

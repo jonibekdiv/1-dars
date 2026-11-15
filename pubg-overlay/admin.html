@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overlay Admin</title>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<header>
+  <nav id="tabs">
+    <button data-a="tab" data-v="live">Jonli</button>
+    <button data-a="tab" data-v="teams">Jamoalar</button>
+    <button data-a="tab" data-v="results">Natijalar</button>
+    <button data-a="tab" data-v="settings">Sozlamalar</button>
+  </nav>
+  <div class="grow"></div>
+  <span id="clock">00:00</span>
+  <button data-a="undo" id="undo" title="Ctrl+Z">↶ Bekor qilish</button>
+  <span id="status" class="st">…</span>
+</header>
+<main id="main"></main>
+<div id="login" hidden>
+  <form id="loginForm">
+    <h2>Admin kirish</h2>
+    <input name="email" type="email" placeholder="Email" required>
+    <input name="password" type="password" placeholder="Parol" required>
+    <button>Kirish</button>
+    <p id="loginErr"></p>
+  </form>
+</div>
+<script src="vendor/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="js/common.js"></script>
+<script src="js/store.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
