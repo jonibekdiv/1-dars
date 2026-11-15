@@ -56,7 +56,7 @@ const U = {
     return ix;
   },
   flagUrl(code) {
-    return /^[a-z]{2}$/i.test(code || '') ? `https://flagcdn.com/w80/${code.toLowerCase()}.png` : '';
+    return /^[a-z]{2}$/i.test(code || '') ? `img/flags/${code.toLowerCase()}.png` : '';   // bundled: works even where flagcdn.com is blocked
   },
   P(live, pid) { return live.players[pid] || { k: 0, kn: 0, dmg: 0, st: 'a' }; },
 

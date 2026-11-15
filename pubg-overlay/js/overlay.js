@@ -24,7 +24,7 @@
     return true;
   }
   const img = (src, cls) => src ? `<img class="${cls || ''}" src="${esc(src)}" alt="">` : '';
-  const flag = (t, cls) => img(U.flagUrl(t.flag), cls || 'fl');
+  const flag = (t, cls) => { const u = U.flagUrl(t.flag); return u ? `<img class="${cls || 'fl'}" src="${u}" alt="" onerror="this.style.visibility='hidden'">` : ''; };
   const logo = (t, cls) => t.logo ? img(t.logo, cls || 'lg') : `<div class="nolg ${cls || ''}">${esc((t.tag || '?').slice(0, 4))}</div>`;
   const pips = pl => `<div class="pips">${pl.map(p => `<i class="${p.st === 'd' ? '' : p.st === 'k' ? 'k' : 'a'}"></i>`).join('')}</div>`;
 
@@ -221,9 +221,9 @@
     return `<div class="bg" style="background-image:url('${cfg.bg ? esc(cfg.bg) : 'img/bg-' + kind + '.webp'}')"></div>`;
   }
   function frame(h1, h2, body, cls, kind) {
-    const fit = plate() && kind === 'rank' ? 800 : 1240;
+    const fit = plate() ? 800 : 1240;                          // on the artwork the title must stay clear of the logo corner
     return `<div class="sc ${plate() ? 'art' : ''} ${plate() && kind === 'rank' ? 'plate' : ''} ${cls || ''}">${backdrop(kind || 'clean')}<div class="brand">${img(cfg.logo)}<span>${esc(cfg.title)}</span></div>` +
-      `<div class="hd"><h1 style="font-size:${Math.min(plate() && kind === 'rank' ? 70 : 82, Math.floor(fit / (Math.max(1, String(h1).length) * .8)))}px">${esc(h1)}</h1><h2>${esc(h2)}</h2></div><div class="body">${body}</div>` +
+      `<div class="hd"><h1 style="font-size:${Math.min(plate() ? 74 : 82, Math.floor(fit / (Math.max(1, String(h1).length) * .8)))}px">${esc(h1)}</h1><h2>${esc(h2)}</h2></div><div class="body">${body}</div>` +
       (cfg.sponsors.length ? `<div class="spons">${cfg.sponsors.map(s => img(s)).join('')}</div>` : '') + '</div>';
   }
   /* Left side: the leading team (player photos, or the logo when there are none) */
