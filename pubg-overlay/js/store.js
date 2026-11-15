@@ -6,18 +6,25 @@ const Store = (() => {
   const q = new URLSearchParams(location.search);
   const room = q.get('room') || C.room || 'main';
   const useSb = !!(C.supabaseUrl && C.supabaseKey && window.supabase);
-  const TABLE = 'overlay_state';
+  const realtime = !window.OVERLAY_NO_REALTIME;      // the public page only polls, to keep realtime slots free
+  const TABLE = 'overlay_state', KEYS = ['config', 'live', 'history', 'maps'];
   const listeners = {}, pending = {}, busy = {};
-  let sb = null, bc = null, statusCb = () => {};
+  let sb = null, bc = null, ch = null, statusCb = () => {};
 
   const emit = (key, data) => (listeners[key] || []).forEach(f => f(data));
   const lsKey = key => `pgo:${room}:${key}`;
   const setStatus = (s, msg) => statusCb(s, msg);
+  const errText = e => e.code === '42501' ? 'Bu hisob admin emas — yozish taqiqlangan' : 'Saqlanmadi: ' + e.message;
+  const lsGet = key => { try { return JSON.parse(localStorage.getItem(lsKey(key))); } catch (e) { return null; } };
+  function lsSet(key, data) {
+    try { localStorage.setItem(lsKey(key), JSON.stringify(data)); }
+    catch (e) { setStatus('error', 'Brauzer xotirasi to\'ldi (rasmlar juda katta)'); return false; }
+    if (bc) bc.postMessage({ key, data });
+    return true;
+  }
 
   async function load(key) {
-    if (!useSb) {
-      try { return JSON.parse(localStorage.getItem(lsKey(key))); } catch (e) { return null; }
-    }
+    if (!useSb) return lsGet(key);
     const { data, error } = await sb.from(TABLE).select('data').eq('room', room).eq('key', key).maybeSingle();
     if (error) { setStatus('error', error.message); return null; }
     return data ? data.data : null;
@@ -29,20 +36,62 @@ const Store = (() => {
     while (pending[key] !== undefined) {
       const data = pending[key]; delete pending[key];
       const { error } = await sb.from(TABLE).upsert({ room, key, data, updated_at: new Date().toISOString() });
-      if (error) { setStatus('error', error.code === '42501' ? 'Bu hisob admin emas — yozish taqiqlangan' : 'Saqlanmadi: ' + error.message); if (pending[key] === undefined) pending[key] = data; await new Promise(r => setTimeout(r, 2000)); }
+      if (error) { setStatus('error', errText(error)); if (pending[key] === undefined) pending[key] = data; await new Promise(r => setTimeout(r, 2000)); }
       else setStatus('ok');
     }
     busy[key] = false;
   }
-
+  /* Plain write: last writer wins (settings, history) */
   function set(key, data) {
-    if (!useSb) {
-      try { localStorage.setItem(lsKey(key), JSON.stringify(data)); }
-      catch (e) { setStatus('error', 'Brauzer xotirasi to\'ldi (rasmlar juda katta)'); }
-      if (bc) bc.postMessage({ key, data });
-      return;
-    }
+    if (!useSb) { lsSet(key, data); return; }
     pending[key] = data; flush(key);
+  }
+
+  /* Safe write for the live match: succeeds only if nobody changed it since version `expect`.
+     Returns {ok:true}, or {ok:false, current} when another admin was faster, or {ok:false, error}. */
+  /* Local mode: localStorage is not atomic between browser tabs, so the version check runs inside
+     an IndexedDB read-write transaction (those are serialised across tabs); localStorage is the mirror. */
+  let idb = null;
+  const idbOpen = () => idb || (idb = new Promise((res, rej) => {
+    const r = indexedDB.open('pgo', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  }));
+  async function localCas(key, expect, data) {
+    let db; try { db = await idbOpen(); } catch (e) { db = null; }
+    if (!db) {                                                  // no IndexedDB: best effort
+      const cur = lsGet(key);
+      if (cur && (cur._s || 0) !== (expect || 0)) return { ok: false, current: cur };
+      return lsSet(key, data) ? { ok: true } : { ok: false, error: 'storage' };
+    }
+    return new Promise(res => {
+      const tx = db.transaction('kv', 'readwrite'), st = tx.objectStore('kv'), k = room + ':' + key;
+      let out = { ok: false, error: 'idb' };
+      const g = st.get(k);
+      g.onsuccess = () => {
+        let cur = g.result;
+        if (cur === undefined) cur = lsGet(key);                // first write in this browser
+        if (cur && (cur._s || 0) !== (expect || 0)) { out = { ok: false, current: cur }; return; }
+        st.put(data, k); out = { ok: true };
+      };
+      tx.oncomplete = () => { if (out.ok && !lsSet(key, data)) out = { ok: false, error: 'storage' }; res(out); };
+      tx.onerror = tx.onabort = () => res({ ok: false, error: 'idb' });
+    });
+  }
+  function cas(key, expect, data) {
+    if (!useSb) return localCas(key, expect, data);
+    return (async () => {
+      const upd = await sb.from(TABLE).update({ data, updated_at: new Date().toISOString() })
+        .eq('room', room).eq('key', key).eq('data->>_s', String(expect || 0)).select('key');
+      if (upd.error) { setStatus('error', errText(upd.error)); return { ok: false, error: upd.error.message }; }
+      if (upd.data && upd.data.length) { setStatus('ok'); return { ok: true }; }
+      const cur = await load(key);
+      if (cur && cur._s !== undefined && (cur._s || 0) !== (expect || 0)) return { ok: false, current: cur };
+      // no row yet (first write ever) or a legacy row without a version: write it outright
+      const ins = await sb.from(TABLE).upsert({ room, key, data, updated_at: new Date().toISOString() });
+      if (ins.error) { setStatus('error', errText(ins.error)); return { ok: false, error: ins.error.message }; }
+      setStatus('ok'); return { ok: true };
+    })();
   }
 
   async function init() {
@@ -60,26 +109,34 @@ const Store = (() => {
       return;
     }
     sb = window.supabase.createClient(C.supabaseUrl, C.supabaseKey);
-    sb.channel('room-' + room)
+    if (!realtime) { setStatus('ok'); return; }
+    ch = sb.channel('room-' + room)
       .on('postgres_changes', { event: '*', schema: 'public', table: TABLE, filter: `room=eq.${room}` }, p => {
         const r = p.new;
         if (!r || !r.key) return;
         // "live" is small and arrives in the payload; big docs (logos, photos) are re-fetched
         if (r.key === 'live' && r.data) emit('live', r.data);
-        else load(r.key).then(d => d && emit(r.key, d));
+        else if (listeners[r.key]) load(r.key).then(d => d && emit(r.key, d));
       })
       .subscribe(st => {
-        if (st === 'SUBSCRIBED') { setStatus('ok'); ['config', 'live', 'history'].forEach(k => load(k).then(d => d && emit(k, d))); }
+        if (st === 'SUBSCRIBED') { setStatus('ok'); KEYS.forEach(k => listeners[k] && load(k).then(d => d && emit(k, d))); }
         else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') setStatus('error', 'Aloqa uzildi, qayta ulanmoqda…');
       });
   }
 
   return {
-    room, mode: useSb ? 'supabase' : 'local', init, load, set,
+    room, mode: useSb ? 'supabase' : 'local', init, load, set, cas,
     on(key, f) { (listeners[key] = listeners[key] || []).push(f); },
     onStatus(f) { statusCb = f; },
-    /* Safety net for the overlay: re-read state periodically in case a realtime event was missed */
-    poll(ms) { if (useSb) setInterval(() => ['live', 'history'].forEach(k => load(k).then(d => d && emit(k, d))), ms); },
+    /* Re-read state periodically (safety net for the overlay, the only channel for the public page) */
+    poll(ms, keys) { if (useSb) setInterval(() => (keys || ['live', 'history']).forEach(k => load(k).then(d => d && emit(k, d))), ms); },
+    /* How many admin panels are open right now */
+    presence(id, cb) {
+      if (!ch) return;
+      ch.on('presence', { event: 'sync' }, () => cb(Object.keys(ch.presenceState()).length));
+      const go = () => ch.track({ id }).catch(() => {});
+      go(); setTimeout(go, 3000);
+    },
     async user() { if (!useSb) return { email: 'local' }; const { data } = await sb.auth.getSession(); return data.session ? data.session.user : null; },
     async signIn(email, password) { const { error } = await sb.auth.signInWithPassword({ email, password }); return error ? error.message : null; },
     /* Returns {error} or {needConfirm:true} when the email must be confirmed first */
@@ -90,6 +147,10 @@ const Store = (() => {
       const err = await this.signIn(email, password);
       return err ? { needConfirm: true } : {};
     },
-    async signOut() { if (useSb) await sb.auth.signOut(); }
+    async signOut() { if (useSb) await sb.auth.signOut(); },
+    /* Admin list (who may write) */
+    async admins() { if (!useSb) return []; const { data } = await sb.from('overlay_admins').select('email').order('email'); return (data || []).map(r => r.email); },
+    async addAdmin(email) { const { error } = await sb.from('overlay_admins').insert({ email: email.toLowerCase() }); return error ? error.message : null; },
+    async delAdmin(email) { const { error } = await sb.from('overlay_admins').delete().eq('email', email); return error ? error.message : null; }
   };
 })();

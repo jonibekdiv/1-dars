@@ -52,3 +52,10 @@ revoke execute on function public.overlay_first_admin() from public, anon, authe
 
 create trigger overlay_first_admin before insert on auth.users
   for each row execute function public.overlay_first_admin();
+
+-- Adminlar admin paneldan boshqa adminlarni ko'rishi, qo'shishi va olib tashlashi mumkin
+create policy "admins read" on public.overlay_admins for select to authenticated using (public.is_overlay_admin());
+create policy "admins add" on public.overlay_admins for insert to authenticated with check (public.is_overlay_admin());
+create policy "admins remove" on public.overlay_admins for delete to authenticated using (public.is_overlay_admin());
+revoke execute on function public.is_overlay_admin() from anon, public;
+grant execute on function public.is_overlay_admin() to authenticated;

@@ -122,3 +122,38 @@ code { background: #090d12; padding: 3px 7px; border-radius: 5px; word-break: br
 #login form { background: var(--p); border: 1px solid var(--ln); border-radius: 14px; padding: 24px; width: min(92vw, 320px); display: flex; flex-direction: column; gap: 10px; }
 #login h2 { margin: 0 0 4px; }
 #loginErr { color: var(--bad); margin: 0; min-height: 18px; font-size: 13px; }
+
+/* ---------- keyboard, stages, map, misc ---------- */
+.tc .hd .no { font: 700 11px ui-monospace, monospace; font-style: normal; color: var(--mu); background: #090d12; border-radius: 4px; padding: 2px 5px; }
+.pr .nm i { font: 700 10px ui-monospace, monospace; font-style: normal; color: var(--mu); margin-right: 7px; }
+.pr .nm.sel i { color: #777; }
+.pr.cur { outline: 2px solid #4da3ff; outline-offset: -2px; border-radius: 6px; background: rgba(77, 163, 255, .12); }
+#atk { flex-wrap: wrap; }
+#atk .kbd { flex-basis: 100%; font-size: 12px; color: #4da3ff; }
+#atk.has .kbd { color: #0b57b0; }
+#atk .kbd b { font-size: inherit; color: inherit; flex: none; }
+#atk .kbd u { text-decoration: none; background: rgba(77, 163, 255, .2); border-radius: 3px; padding: 0 4px; font-weight: 700; }
+.mp { font-size: 10px; font-weight: 700; background: #ffd24a; color: #000; border-radius: 4px; padding: 1px 5px; }
+.stg { border: 1px solid var(--ln); border-radius: 10px; padding: 8px; margin-bottom: 8px; }
+.stg.cur { border-color: var(--acc); }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
+.chips button { padding: 5px 9px; font-weight: 600; }
+.chips button.done { color: var(--ok); }
+.chips button.on { color: #fff; }
+.ck { flex-direction: row; align-items: center; gap: 4px; background: var(--p2); border-radius: 6px; padding: 4px 8px; color: var(--tx); cursor: pointer; }
+.mapw { display: grid; grid-template-columns: minmax(0, 720px) minmax(240px, 1fr); gap: 12px; align-items: start; }
+@media (max-width: 900px) { .mapw { grid-template-columns: minmax(0, 1fr); } }
+.mapbox { position: relative; background: #090d12; border-radius: 8px; overflow: hidden; cursor: crosshair; user-select: none; margin-top: 8px; }
+.mapbox > img { display: block; width: 100%; pointer-events: none; }
+.pin { position: absolute; transform: translate(-50%, -50%); padding: 2px 6px 2px 2px; display: flex; align-items: center; gap: 4px; background: rgba(0, 0, 0, .78); border: 1px solid #fff; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.pin img { width: 22px; height: 22px; object-fit: contain; }
+.filebtn { flex-direction: row; align-items: center; background: var(--p2); border: 1px solid var(--ln); border-radius: 8px; padding: 8px 12px; cursor: pointer; color: var(--tx); font-size: 14px; position: relative; overflow: hidden; }
+.filebtn input { position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+details.box > summary { padding: 0; }
+
+/* the attacker bar never changes height, so the buttons below never jump while an admin is clicking */
+#atk { height: 58px; min-height: 0; flex-wrap: nowrap; overflow: hidden; }
+#atk > .hint { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#atk .kbd { flex: 0 1 auto; margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#atk.has > b { flex: 0 1 auto; }
+@media (max-width: 900px) { #atk { height: 50px; } }

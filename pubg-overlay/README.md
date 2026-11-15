@@ -24,11 +24,41 @@ OBS Studio uchun real vaqtda ishlaydigan turnir bannerlari va qo'lda boshqarilad
    - Kill: o'ldirgan o'yinchi **ismini** bosing → qurbonning **☠** tugmasini bosing.
    - Nok: o'ldirgan o'yinchi ismini bosing → qurbonning **N** tugmasini bosing.
    - Zonadan o'lim: hech kim tanlanmagan holda (Esc) **☠** ni bosing.
-   - Nok qilingan o'yinchi boshqa jamoa tomonidan o'ldirilsa "ELIM STEALER" o'zi chiqadi.
    - Jamoaning oxirgi o'yinchisi yiqilsa, nokdagilar ham o'ladi va jamoa o'rni o'zi belgilanadi.
-   - Xato bo'lsa — **Bekor qilish** (Ctrl+Z).
+   - Xato bo'lsa — **Bekor qilish** (Ctrl+Z). Faqat o'zingizning oxirgi harakatingiz bekor bo'ladi.
 3. Match tugagach **Matchni yakunlash** — natija saqlanadi, ochkolar hisoblanadi, yangi match ochiladi.
-4. **Natijalar** bo'limida o'rinlarni tuzatish, damage kiritish va CSV yuklab olish mumkin.
+4. **Natijalar** bo'limida o'rinlarni tuzatish, damage kiritish, PNG va CSV yuklab olish mumkin.
+
+### Klaviatura
+
+Har bir jamoa kartasida raqam bor (01, 02…), o'yinchilarda ham (1–4).
+**2 raqam jamoa + 1 raqam o'yinchi**, keyin: **A** — hujumchi, **K** — kill, **N** — nok.
+Misol: `011 A 032 K` — 1-jamoaning 1-o'yinchisi 3-jamoaning 2-o'yinchisini o'ldirdi.
+`Backspace` — raqamni tozalash, `Esc` — bekor qilish, `Ctrl+Z` — orqaga.
+
+### Bir nechta admin
+
+Sozlamalar → **Adminlar** bo'limida yangi admin emailini qo'shing; u admin sahifasida o'sha email bilan ro'yxatdan o'tadi.
+Bir vaqtda ishlash mumkin (masalan biri kill, biri sahnalar) — hech kim boshqasining ishini o'chirmaydi. Tepada "👥 2 admin" ko'rinadi.
+
+### Sahnalar (hammasi faqat admin bosganda chiqadi, o'sha tugma qayta bosilsa yopiladi)
+
+| Tugma | Nima ko'rsatadi |
+|---|---|
+| Match natijasi, Umumiy reyting | Jadval, yetakchi jamoa, o'rin o'zgarishi ▲▼, match point |
+| Top fraggers, Statistika, Chempion | O'yinchi kartalari, g'olib |
+| Xarita (drop) | **Xarita** bo'limida belgilangan tushish joylari |
+| A vs B | Ikki jamoani yonma-yon taqqoslash |
+| Match MVP, Turnir MVP, tanlangan o'yinchi | Bitta o'yinchi katta rasmi va statistikasi |
+| Tez orada, Keyingi match, Tanaffus | Sanoq taymeri (daqiqa) bilan tanaffus ekrani |
+| 🔊 Ovoz | Banner va sahnalarda qisqa ovoz effekti (OBS'da "Control audio via OBS" ni belgilang) |
+
+### Sozlamalar
+
+- **Bosqichlar** — kun / guruh / final: har birining o'z matchlari, o'z jadvali va o'z jamoalari bor.
+- **Match point** — belgilangan ochkoga yetgan jamoa keyingi WWCD bilan chempion bo'ladi.
+- **Zaxira nusxa** — hamma narsani bitta faylga yuklab olish va qayta tiklash.
+- **Tomoshabinlar uchun jonli jadval** — `table.html` havolasi, telefonda ochiladi.
 
 ## Internet orqali ishlatish
 
@@ -36,6 +66,7 @@ Tizim Supabase loyihasiga ulangan (`config.js`) va Vercel'da joylashgan:
 
 - Admin: https://pubg-overlay.vercel.app/admin.html
 - Overlay: https://pubg-overlay.vercel.app/overlay.html
+- Tomoshabinlar uchun jadval: https://pubg-overlay.vercel.app/table.html
 
 Admin sahifasida **birinchi ro'yxatdan o'tgan hisob** admin bo'ladi. Keyingi hisoblar yoza olmaydi;
 yana admin qo'shish uchun Supabase SQL Editor'da:

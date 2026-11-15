@@ -1,0 +1,36 @@
+:root { --acc: #d0142c; --bg: #131316; --p: #1d1d22; --ln: rgba(255, 255, 255, .09); --tx: #f4f4f6; --mu: #a9a4a6; --ok: #37d67a; }
+* { box-sizing: border-box; margin: 0; }
+body { background: var(--bg) radial-gradient(900px 500px at 100% -10%, color-mix(in srgb, var(--acc) 35%, transparent), transparent 70%) no-repeat; color: var(--tx); font: 15px/1.35 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; min-height: 100vh; }
+header { position: sticky; top: 0; z-index: 5; background: rgba(19, 19, 22, .94); backdrop-filter: blur(8px); border-bottom: 2px solid var(--acc); padding: 12px 14px 0; }
+#brand { display: flex; align-items: center; gap: 12px; max-width: 900px; margin: 0 auto 10px; }
+#brand img { width: 46px; height: 46px; object-fit: contain; }
+#brand b { display: block; font: 800 26px/1 'Barlow Condensed', sans-serif; letter-spacing: .03em; text-transform: uppercase; }
+#brand span { font: 700 14px 'Barlow Condensed', sans-serif; letter-spacing: .2em; color: var(--mu); text-transform: uppercase; }
+#tabs { display: flex; gap: 4px; max-width: 900px; margin: 0 auto; }
+#tabs button { flex: 1; background: transparent; color: var(--mu); border: 0; border-radius: 8px 8px 0 0; padding: 10px 6px; font: 700 17px 'Barlow Condensed', sans-serif; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+#tabs button.on { background: var(--acc); color: #fff; }
+main { max-width: 900px; margin: 0 auto; padding: 14px 10px 30px; }
+h2 { font: 700 15px 'Barlow Condensed', sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--mu); margin: 2px 4px 10px; }
+table { width: 100%; border-collapse: collapse; background: var(--p); border-radius: 12px; overflow: hidden; font-variant-numeric: tabular-nums; }
+th { font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--mu); padding: 9px 6px; background: rgba(0, 0, 0, .3); }
+td { padding: 8px 6px; text-align: center; border-top: 1px solid var(--ln); font: 700 19px 'Barlow Condensed', sans-serif; }
+th.l, td.l { text-align: left; }
+td.n { color: var(--mu); width: 34px; }
+td.t { font-weight: 800; font-size: 21px; background: rgba(255, 255, 255, .04); width: 54px; }
+tr.top td.n { color: #fff; background: var(--acc); }
+tr.out { opacity: .45; }
+.tm { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.tm .lg { width: 30px; height: 30px; object-fit: contain; flex: none; display: inline-block; }
+.tm .fl { width: 22px; height: 15px; object-fit: cover; border-radius: 2px; flex: none; }
+.tm b { font-weight: 800; font-size: 20px; }
+.tm span { font: 500 12px system-ui, sans-serif; color: var(--mu); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 34vw; }
+.tm em { font: 800 10px system-ui, sans-serif; font-style: normal; background: #ffd24a; color: #111; border-radius: 4px; padding: 2px 6px; }
+.tm em.ch { background: var(--ok); }
+.pips { display: inline-flex; gap: 3px; vertical-align: middle; }
+.pips i { width: 7px; height: 18px; border-radius: 2px; background: rgba(255, 255, 255, .16); display: inline-block; }
+.pips i.a { background: var(--ok); } .pips i.k { background: #ffb020; }
+details { margin-bottom: 10px; }
+summary { cursor: pointer; padding: 10px 6px; font: 800 20px 'Barlow Condensed', sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+.hint { color: var(--mu); font-size: 13px; padding: 12px 6px; }
+footer { text-align: center; color: var(--mu); font-size: 12px; padding: 0 0 26px; }
+@media (max-width: 480px) { .tm span { display: none; } td { font-size: 18px; padding: 8px 4px; } }
