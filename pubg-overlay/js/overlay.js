@@ -29,17 +29,16 @@
 
   /* Accent colour and the shades derived from it (computed here so old OBS browsers need no modern CSS) */
   function applyTheme() {
-    const m = /^#?([0-9a-f]{6})$/i.exec(cfg.accent || '') || [0, 'ff6a1a'];
-    const n = parseInt(m[1], 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+    let hex = (/^#?([0-9a-f]{6})$/i.exec(cfg.accent || '') || [0, 'd0142c'])[1].toLowerCase();
+    if (hex === 'ff6a1a') hex = 'd0142c';                     // the old default colour
+    const n = parseInt(hex, 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
     const mix = k => `rgb(${Math.round(r * k)},${Math.round(g * k)},${Math.round(b * k)})`;
-    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    const lite = k => `rgb(${Math.round(r + (255 - r) * k)},${Math.round(g + (255 - g) * k)},${Math.round(b + (255 - b) * k)})`;
     const st = document.documentElement.style;
-    st.setProperty('--acc', `rgb(${r},${g},${b})`);
-    st.setProperty('--acc-d', mix(.62));
-    st.setProperty('--acc-dd', mix(.3));
-    st.setProperty('--acc-a', `rgba(${r},${g},${b},.26)`);
-    st.setProperty('--acc-a2', `rgba(${r},${g},${b},.12)`);
-    st.setProperty('--on', lum > .62 ? '#0b1017' : '#ffffff');
+    st.setProperty('--acc', mix(1)); st.setProperty('--acc-l', lite(.28));
+    st.setProperty('--acc-d', mix(.62)); st.setProperty('--acc-dd', mix(.3)); st.setProperty('--acc-k', mix(.16));
+    st.setProperty('--acc-a', `rgba(${r},${g},${b},.3)`); st.setProperty('--acc-a2', `rgba(${r},${g},${b},.14)`);
+    st.setProperty('--l1', lite(.28)); st.setProperty('--l2', mix(1)); st.setProperty('--l3', mix(.5));
   }
 
   /* ---------- ranking ---------- */
@@ -181,46 +180,90 @@
   }, 200);
 
   /* ---------- fullscreen scenes ---------- */
-  function head(h1, h2) {
-    return `<div class="deco"></div><div class="brand">${img(cfg.logo)}<span>${esc(cfg.title)}</span></div><div class="hd"><h1>${esc(h1)}</h1><h2>${esc(h2)}</h2></div>`;
+  /* Liquid backdrop drawn in SVG (the "liq" filter in overlay.html makes the edges organic) */
+  function backdrop() {
+    if (cfg.bg) return `<div class="bg" style="background-image:url('${esc(cfg.bg)}')"></div>`;
+    const light = cfg.scene === 'light';
+    return `<svg class="bg" viewBox="0 0 1920 1080" preserveAspectRatio="none"><defs>
+      <linearGradient id="gr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--l1)"/><stop offset=".45" style="stop-color:var(--l2)"/><stop offset=".8" style="stop-color:var(--l3)"/><stop offset="1" style="stop-color:var(--l2)"/></linearGradient>
+      <linearGradient id="gw" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#c9ccd3"/></linearGradient>
+      <linearGradient id="gk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a3a42"/><stop offset=".5" stop-color="#0c0c0f"/><stop offset="1" stop-color="#2a2a30"/></linearGradient></defs>
+      <rect width="1920" height="1080" fill="${light ? '#f3f3f5' : '#1b1b20'}"/>
+      <g filter="url(#liq)">
+        <path fill="url(#gr)" d="M-40-40H700C640 40 520 20 440 110 360 200 250 150 170 250 100 340 40 320-40 420Z"/>
+        <path fill="url(#gr)" d="M1960-40H1160C1250 30 1320 160 1450 140 1570 120 1610 40 1710 100 1800 150 1870 280 1960 290Z"/>
+        <path fill="url(#gw)" d="M1960-40H1700C1750 70 1800 190 1960 230Z"/>
+        <path fill="url(#gr)" d="M1960 340C1850 430 1900 570 1830 690 1770 790 1850 900 1960 960Z"/>
+        <path fill="url(#gr)" d="M1960 1120H1120C1240 1010 1380 1070 1490 980 1600 890 1710 960 1810 860 1870 800 1920 790 1960 780Z"/>
+        <path fill="url(#gw)" d="M1960 1120H1740C1790 1040 1860 1010 1960 980Z"/>
+        <path fill="url(#${light ? 'gr' : 'gk'})" d="M-40 1120H620C520 1020 400 1060 310 970 220 880 110 900-40 780Z"/>
+        <path fill="url(#gr)" d="M-40 1120H330C270 1060 190 1070 120 1010 60 960 10 960-40 930Z"/>
+        <path fill="url(#gw)" d="M-40 1120H130C100 1080 50 1060-40 1050Z"/>
+        <path fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="10" stroke-linecap="round" d="M60 60C200 40 330 60 420 20M1500 90C1560 70 1620 40 1680 60M1560 1010C1650 960 1740 990 1820 910M70 980C150 1000 230 1040 300 1040"/>
+        <circle cx="560" cy="170" r="16" fill="url(#gr)"/><circle cx="610" cy="120" r="8" fill="url(#gr)"/><circle cx="1090" cy="70" r="12" fill="url(#gr)"/>
+        <circle cx="1040" cy="1020" r="14" fill="url(#gr)"/><circle cx="700" cy="1040" r="9" fill="url(#gr)"/><circle cx="1850" cy="620" r="10" fill="url(#gw)"/>
+      </g></svg>`;
   }
-  function table(list, cols) {
+  function frame(h1, h2, body, cls) {
+    return `<div class="sc ${cfg.scene === 'light' ? 'light' : ''} ${cls || ''}">${backdrop()}<div class="brand">${img(cfg.logo)}<span>${esc(cfg.title)}</span></div>` +
+      `<div class="hd"><h1 style="font-size:${Math.min(82, Math.floor(1240 / (Math.max(1, String(h1).length) * .8)))}px">${esc(h1)}</h1><h2>${esc(h2)}</h2></div><div class="body">${body}</div>` +
+      (cfg.sponsors.length ? `<div class="spons">${cfg.sponsors.map(s => img(s)).join('')}</div>` : '') + '</div>';
+  }
+  /* Left side: the leading team (player photos, or the logo when there are none) */
+  function hero(t, label) {
+    const ph = t.players.filter(p => p.photo);
+    const mid = Math.floor((ph.length - 1) / 2);
+    return `<div class="hero"><div class="ppl">${ph.length ? ph.map((p, i) => `<img src="${esc(p.photo)}" style="z-index:${10 - Math.abs(i - mid)};height:${100 - Math.abs(i - mid) * 9}%">`).join('') : logo(t)}</div>` +
+      `<div class="hb lq"><b>${esc(label)}</b>${flag(t)}<span>${esc(t.name || t.tag)}</span></div></div>`;
+  }
+  function table(list, cols, moves) {
     const n = list.length, two = n > 10, per = two ? Math.ceil(n / 2) : n;
-    const th = Math.max(34, Math.min(70, Math.floor(690 / (per + 1))));
-    const hd = `<div class="tr h"><span>RANK</span><span></span><span></span><span class="nm">TEAM</span>${cols.map(c => `<span>${c[0]}</span>`).join('')}</div>`;
-    const row = (r, i) => `<div class="tr ${i < 3 ? 'top' + (i + 1) : ''}" style="animation-delay:${i * 35}ms"><span class="rk">${i + 1}</span>${flag(r.t) || '<span></span>'}${r.t.logo ? img(r.t.logo, 'lg') : '<span></span>'}<span class="nm">${esc(two ? (r.t.tag || r.t.name) : (r.t.name || r.t.tag))}</span>${cols.map(c => `<span class="${c[2] || ''}">${c[1](r)}</span>`).join('')}</div>`;
+    const th = Math.max(30, Math.min(62, Math.floor(560 / (per + 1))));
+    const mv = r => !moves ? '' : moves[r.t.id] > 0 ? '<i class="up"></i>' : moves[r.t.id] < 0 ? '<i class="dn"></i>' : '<i class="eq"></i>';
+    const hd = `<div class="tr h"><span></span><span>RANK</span><span></span><span></span><span class="nm">TEAMS</span>${cols.map(c => `<span>${c[0]}</span>`).join('')}</div>`;
+    const row = (r, i) => `<div class="tr ${i === 0 ? 'top1' : ''}" style="animation-delay:${i * 35}ms"><span class="mv">${mv(r)}</span><span class="rk">#${i + 1}</span>${flag(r.t) || '<span></span>'}${r.t.logo ? img(r.t.logo, 'lg') : '<span></span>'}<span class="nm">${esc(r.t.tag || r.t.name)}</span>${cols.map(c => `<span class="${c[2] || ''}">${c[1](r)}</span>`).join('')}</div>`;
     const colHtml = part => `<div>${hd}${part.map(x => row(x.r, x.i)).join('')}</div>`;
     const items = list.map((r, i) => ({ r, i }));
-    return `<div class="tb ${two ? 'two' : ''}" style="--th:${th}px">${colHtml(items.slice(0, per))}${two ? colHtml(items.slice(per)) : ''}</div>`;
+    return `<div class="tb lq ${two ? 'two' : ''}" style="--th:${th}px">${colHtml(items.slice(0, per))}${two ? colHtml(items.slice(per)) : ''}</div>`;
+  }
+  function ranking(h1, h2, list, cols, moves) {
+    if (!list.length) return frame(h1, h2, '');
+    return frame(h1, h2, hero(list[0].t, '#1') + table(list, cols, moves), list.length > 10 ? 'wide' : '');
   }
   function playerCard(pid, i, withTeam) {
     const e = ix.p[pid]; if (!e) return '';
     const tot = U.playerTotals(cfg, hist, live)[pid] || { k: 0, kn: 0, dmg: 0, surv: 0, n: 0 };
-    return `<div class="pc" style="animation-delay:${i * 90}ms"><div class="ph">${e.p.photo ? img(e.p.photo) : logo(e.t, 'wm')}${withTeam ? `<div class="rkn">#${i + 1}</div>` : ''}</div><div class="nm">${esc(e.p.name)}</div>` +
+    return `<div class="pc lq" style="animation-delay:${i * 90}ms"><div class="ph">${e.p.photo ? img(e.p.photo) : logo(e.t, 'wm')}${withTeam ? `<div class="rkn">#${i + 1}</div>` : ''}</div><div class="nm">${esc(e.p.name)}</div>` +
       (withTeam ? `<div class="tm">${e.t.logo ? img(e.t.logo) : ''}${esc(e.t.tag)}</div>` : '') +
       `<dl><div>ELIMS<dd>${tot.k}</dd></div><div>DAMAGE<dd>${Math.round(tot.dmg)}</dd></div><div>KNOCKS<dd>${tot.kn}</dd></div><div>AVG. SURV.<dd>${tot.n ? U.mmss(tot.surv / tot.n) : '--:--'}</dd></div></dl></div>`;
   }
   function sceneHtml() {
     const s = live.show.scene, t = ix.t[live.show.sceneTeam];
-    const wwcd = r => r.wwcd ? '<i class="ck"></i>' : '–';
+    const wwcd = r => r.wwcd ? '<i class="ck"></i>' : '0';
+    const sub = a => a.filter(Boolean).join(' ▪ ');
     if (s === 'results') {
       const used = Object.keys(live.players).length || !hist.matches.length ? live : hist.matches[hist.matches.length - 1];
       const no = used === live ? live.matchNo : used.no, map = used === live ? live.map : used.map;
-      return `<div class="sc">${head('MATCH RESULTS', [cfg.stage, 'MATCH ' + no, map].filter(Boolean).join(' · '))}${table(U.matchRows(cfg, used), [['WWCD', wwcd], ['PLACE PTS', r => r.pp], ['ELIMS', r => r.elims], ['TOTAL', r => r.total, 'tot']])}</div>`;
+      return ranking('MATCH RESULTS', sub([cfg.stage, 'MATCH ' + no, map]), U.matchRows(cfg, used), [['WWCD', wwcd], ['PLACE PTS.', r => r.pp], ['ELIMS.', r => r.elims], ['TOTAL PTS.', r => r.total, 'tot']]);
     }
     if (s === 'overall') {
-      return `<div class="sc">${head('OVERALL RANKING', [cfg.stage, 'POST MATCH ' + hist.matches.length].filter(Boolean).join(' · '))}${table(U.overall(cfg, hist), [['WWCD', r => r.wwcd], ['PLACE PTS', r => r.pp], ['ELIMS', r => r.elims], ['TOTAL', r => r.total, 'tot']])}</div>`;
+      const now = U.overall(cfg, hist), moves = {};
+      if (hist.matches.length > 1) {
+        const before = U.overall(cfg, { matches: hist.matches.slice(0, -1) });
+        now.forEach((r, i) => { moves[r.t.id] = before.findIndex(x => x.t.id === r.t.id) - i; });
+      }
+      return ranking('OVERALL RANKING', sub([cfg.stage, 'POST MATCH ' + hist.matches.length]), now, [['WWCD', r => r.wwcd], ['PLACE PTS.', r => r.pp], ['ELIMS.', r => r.elims], ['TOTAL PTS.', r => r.total, 'tot']], moves);
     }
     if (s === 'team' && t) {
-      return `<div class="sc">${head(t.name || t.tag, 'TEAM PERFORMANCE')}<div class="cards"><div class="side">${logo(t)}${flag(t)}</div>${t.players.map((p, i) => playerCard(p.id, i)).join('')}</div></div>`;
+      return frame(t.name || t.tag, 'TEAM PERFORMANCE', `<div class="cards"><div class="side">${logo(t)}${flag(t)}</div>${t.players.map((p, i) => playerCard(p.id, i)).join('')}</div>`);
     }
     if (s === 'mvp') {
       const tot = U.playerTotals(cfg, hist, live);
       const top = Object.keys(tot).filter(id => ix.p[id]).sort((a, b) => (tot[b].k - tot[a].k) || (tot[b].dmg - tot[a].dmg) || (tot[b].kn - tot[a].kn)).slice(0, 5);
-      return `<div class="sc">${head('TOP FRAGGERS', cfg.stage)}<div class="cards">${top.map((id, i) => playerCard(id, i, true)).join('')}</div></div>`;
+      return frame('TOP FRAGGERS', cfg.stage, `<div class="cards">${top.map((id, i) => playerCard(id, i, true)).join('')}</div>`);
     }
     if (s === 'champion' && t) {
-      return `<div class="champ"><div class="rays"></div><div class="k">CHAMPION OF THE MATCH</div><div class="bd">${logo(t)}</div><div class="n">${esc(t.name || t.tag)}</div><div class="s">WINNER WINNER CHICKEN DINNER · MATCH ${live.matchNo}</div></div>`;
+      return frame('CHAMPION OF THE MATCH', sub([cfg.stage, 'MATCH ' + live.matchNo, live.map]), `<div class="champ"><div class="bd">${logo(t)}</div><div class="hb lq"><b>WWCD</b>${flag(t)}<span>${esc(t.name || t.tag)}</span></div></div>`, 'ch');
     }
     return '';
   }

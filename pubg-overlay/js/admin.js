@@ -207,7 +207,9 @@
     const url = `${base}overlay.html${Store.room !== 'main' ? '?room=' + encodeURIComponent(Store.room) : ''}`;
     return `<div class="cols"><div class="box"><h3>Brend</h3>
       <div class="row"><span style="width:64px">${up(cfg.logo, 'logo', '', 'Turnir logosi')}</span><div style="flex:1"><label>Turnir nomi<input data-g="title" value="${esc(cfg.title)}"></label><label style="margin-top:6px">Bosqich<input data-g="stage" value="${esc(cfg.stage)}"></label></div></div>
-      <div class="row"><label>Asosiy rang<input type="color" data-g="accent" value="${esc(cfg.accent)}"></label></div>
+      <div class="row"><label>Asosiy rang<input type="color" data-g="accent" value="${esc(cfg.accent === '#ff6a1a' ? '#d0142c' : cfg.accent)}"></label>
+        <label>Sahna foni<select data-g="scene"><option value="dark" ${cfg.scene !== 'light' ? 'selected' : ''}>Qora</option><option value="light" ${cfg.scene === 'light' ? 'selected' : ''}>Oq</option></select></label>
+        <label>O'z fon rasmingiz (ixtiyoriy, 1920×1080)<span class="row" style="margin:0"><span style="width:96px">${up(cfg.bg, 'bg', '', 'Fon rasmi')}</span>${cfg.bg ? '<button class="dng" data-a="delBg">O\'chirish</button>' : ''}</span></label></div>
       <h3 style="margin-top:12px">Homiylar (pastki bannerda almashib turadi)</h3>
       <div class="spn">${cfg.sponsors.map((s, i) => `<span class="up"><img src="${esc(s)}"><button class="dng" data-a="delSp" data-id="${i}" style="position:absolute;right:2px;top:2px;padding:0 6px">✕</button></span>`).join('')}${up('', 'sponsor', '', 'Homiy logosi')}</div></div>
     <div class="box"><h3>Ochkolar</h3><label>O'rin ochkolari (1-o'rindan boshlab, vergul bilan)<input data-g="place" value="${cfg.points.place.join(', ')}"></label>
@@ -323,6 +325,7 @@
       });
       saveCfg(); render();
     },
+    delBg() { cfg.bg = ''; saveCfg(); render(); },
     delSp(d) { cfg.sponsors.splice(+d.id, 1); saveCfg(); render(); },
     delMatch(d) { if (!confirm('Bu match natijasi o\'chirilsinmi?')) return; hist.matches.splice(+d.id, 1); saveHist(); render(); },
     resetMatch() { if (!confirm('Joriy match tozalansinmi?')) return; act(() => { const n = U.defLive(live.matchNo); n.map = live.map; n._s = live._s; live = n; }); },
@@ -350,12 +353,13 @@
     if (d.c) { // image uploads
       const f = el.files[0]; if (!f) return;
       const big = d.c === 'pphoto' || d.c === 'sponsor';
-      const src = await readImage(f, d.c === 'sponsor' ? 360 : d.c === 'pphoto' ? 240 : 200);
+      const src = await readImage(f, d.c === 'bg' ? 1920 : d.c === 'sponsor' ? 360 : d.c === 'pphoto' ? 400 : 200);
       if (!src) return alert('Rasm o\'qilmadi');
       if (d.c === 'tlogo') ix.t[d.id].logo = src;
       else if (d.c === 'pphoto') ix.p[d.id].p.photo = src;
       else if (d.c === 'logo') cfg.logo = src;
       else if (d.c === 'sponsor') cfg.sponsors.push(src);
+      else if (d.c === 'bg') cfg.bg = src;
       saveCfg(); render();
     } else if (d.t) { ix.t[d.id][d.t] = d.t === 'name' ? el.value : d.t === 'tag' ? el.value.toUpperCase() : el.value.toLowerCase(); saveCfg(); }
     else if (d.p) { ix.p[d.id].p.name = el.value; saveCfg(); }
@@ -369,7 +373,7 @@
       else if (k === 'teamElim' || k === 'stealer' || k === 'firstBlood') cfg.auto[k] = el.checked;
       else if (k === 'rampage' || k === 'domination') cfg.auto[k] = +el.value || 0;
       else if (k === 'zoneShowAt') cfg.zoneShowAt = Math.max(1, +el.value || 10);
-      else cfg[k] = k === 'accent' ? el.value : el.value.toUpperCase();
+      else cfg[k] = (k === 'accent' || k === 'scene') ? el.value : el.value.toUpperCase();
       saveCfg();
     }
   });

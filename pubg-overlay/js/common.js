@@ -7,7 +7,7 @@ const U = {
 
   defConfig() {
     return {
-      title: 'MY TOURNAMENT', stage: 'GRAND FINALS', logo: '', accent: '#ff6a1a',
+      title: 'MY TOURNAMENT', stage: 'GRAND FINALS', logo: '', accent: '#d0142c', scene: 'dark', bg: '',
       sponsors: [], teams: [],
       points: { place: [10, 6, 5, 4, 3, 2, 1, 1], kill: 1 },
       auto: { teamElim: true, stealer: true, firstBlood: true, rampage: 4, domination: 7 },
