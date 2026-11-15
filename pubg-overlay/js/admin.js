@@ -617,6 +617,7 @@
     cfg = U.normConfig(c); ix = U.index(cfg); hist = U.normHist(h); maps = U.normMaps(m);
     server = U.normLive(l); live = U.normLive(U.clone(server));
     if (!cfg.teams.length) tab = 'teams';
+    else Store.set('pub', U.publicConfig(cfg));               // keep the public standings page in sync
     Store.presence(me, n => { const w = $('#who'); w.hidden = n < 2; w.textContent = '👥 ' + n + ' admin'; });
     render();
   }
