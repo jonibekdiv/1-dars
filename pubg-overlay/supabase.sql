@@ -37,5 +37,18 @@ create policy "overlay update" on public.overlay_state for update to authenticat
 -- Real vaqt
 alter publication supabase_realtime add table public.overlay_state;
 
--- Admin emailingizni qo'shing (Authentication > Users da shu email bilan foydalanuvchi yarating):
--- insert into public.overlay_admins (email) values ('siz@example.com');
+-- Birinchi ro'yxatdan o'tgan hisob avtomatik admin bo'ladi va darhol tasdiqlanadi.
+create or replace function public.overlay_first_admin() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.email is not null and not exists (select 1 from public.overlay_admins) then
+    insert into public.overlay_admins (email) values (lower(new.email));
+    new.email_confirmed_at := coalesce(new.email_confirmed_at, now());
+  end if;
+  return new;
+end;
+$$;
+revoke execute on function public.overlay_first_admin() from public, anon, authenticated;
+
+create trigger overlay_first_admin before insert on auth.users
+  for each row execute function public.overlay_first_admin();

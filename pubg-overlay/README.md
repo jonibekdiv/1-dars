@@ -30,18 +30,20 @@ OBS Studio uchun real vaqtda ishlaydigan turnir bannerlari va qo'lda boshqarilad
 3. Match tugagach **Matchni yakunlash** — natija saqlanadi, ochkolar hisoblanadi, yangi match ochiladi.
 4. **Natijalar** bo'limida o'rinlarni tuzatish, damage kiritish va CSV yuklab olish mumkin.
 
-## Internet orqali ishlatish (Supabase)
+## Internet orqali ishlatish
 
-`config.js` bo'sh bo'lsa tizim faqat bitta brauzer ichida ishlaydi (sinov uchun). Strim uchun:
+Tizim Supabase loyihasiga ulangan (`config.js`) va Vercel'da joylashgan:
 
-1. [supabase.com](https://supabase.com) da bepul loyiha oching.
-2. **SQL Editor** ga `supabase.sql` faylini qo'yib ishga tushiring.
-3. **Authentication → Users → Add user** orqali admin email va parol yarating (Auto Confirm yoqilgan holda).
-4. SQL Editor'da: `insert into public.overlay_admins (email) values ('sizning@email.com');`
-5. **Project Settings → API** dan URL va `anon` (publishable) kalitni `config.js` ga yozing.
-6. Papkani istalgan statik hostingga qo'ying (GitHub Pages, Vercel, Netlify).
+- Admin: https://pubg-overlay.vercel.app/admin.html
+- Overlay: https://pubg-overlay.vercel.app/overlay.html
+
+Admin sahifasida **birinchi ro'yxatdan o'tgan hisob** admin bo'ladi. Keyingi hisoblar yoza olmaydi;
+yana admin qo'shish uchun Supabase SQL Editor'da:
+`insert into public.overlay_admins (email) values ('yangi@email.com');`
+
+Boshqa Supabase loyihasiga ko'chirish uchun `supabase.sql` ni ishga tushirib, `config.js` dagi manzil va kalitni almashtiring.
 
 ## OBS ga ulash
 
-Sources → **+** → **Browser** → URL: `https://sizning-sayt/overlay.html`, Width `1920`, Height `1080`.
+Sources → **+** → **Browser** → URL: `https://pubg-overlay.vercel.app/overlay.html`, Width `1920`, Height `1080`.
 Bir nechta turnir uchun URL ga `?room=nomi` qo'shing (admin va overlay da bir xil bo'lsin).
