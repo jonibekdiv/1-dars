@@ -208,7 +208,6 @@
     return `<div class="cols"><div class="box"><h3>Brend</h3>
       <div class="row"><span style="width:64px">${up(cfg.logo, 'logo', '', 'Turnir logosi')}</span><div style="flex:1"><label>Turnir nomi<input data-g="title" value="${esc(cfg.title)}"></label><label style="margin-top:6px">Bosqich<input data-g="stage" value="${esc(cfg.stage)}"></label></div></div>
       <div class="row"><label>Asosiy rang<input type="color" data-g="accent" value="${esc(cfg.accent === '#ff6a1a' ? '#d0142c' : cfg.accent)}"></label>
-        <label>Sahna foni<select data-g="scene"><option value="dark" ${cfg.scene !== 'light' ? 'selected' : ''}>Qora</option><option value="light" ${cfg.scene === 'light' ? 'selected' : ''}>Oq</option></select></label>
         <label>O'z fon rasmingiz (ixtiyoriy, 1920×1080)<span class="row" style="margin:0"><span style="width:96px">${up(cfg.bg, 'bg', '', 'Fon rasmi')}</span>${cfg.bg ? '<button class="dng" data-a="delBg">O\'chirish</button>' : ''}</span></label></div>
       <h3 style="margin-top:12px">Homiylar (pastki bannerda almashib turadi)</h3>
       <div class="spn">${cfg.sponsors.map((s, i) => `<span class="up"><img src="${esc(s)}"><button class="dng" data-a="delSp" data-id="${i}" style="position:absolute;right:2px;top:2px;padding:0 6px">✕</button></span>`).join('')}${up('', 'sponsor', '', 'Homiy logosi')}</div></div>

@@ -180,33 +180,16 @@
   }, 200);
 
   /* ---------- fullscreen scenes ---------- */
-  /* Liquid backdrop drawn in SVG (the "liq" filter in overlay.html makes the edges organic) */
-  function backdrop() {
-    if (cfg.bg) return `<div class="bg" style="background-image:url('${esc(cfg.bg)}')"></div>`;
-    const light = cfg.scene === 'light';
-    return `<svg class="bg" viewBox="0 0 1920 1080" preserveAspectRatio="none"><defs>
-      <linearGradient id="gr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--l1)"/><stop offset=".45" style="stop-color:var(--l2)"/><stop offset=".8" style="stop-color:var(--l3)"/><stop offset="1" style="stop-color:var(--l2)"/></linearGradient>
-      <linearGradient id="gw" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#c9ccd3"/></linearGradient>
-      <linearGradient id="gk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a3a42"/><stop offset=".5" stop-color="#0c0c0f"/><stop offset="1" stop-color="#2a2a30"/></linearGradient></defs>
-      <rect width="1920" height="1080" fill="${light ? '#f3f3f5' : '#1b1b20'}"/>
-      <g filter="url(#liq)">
-        <path fill="url(#gr)" d="M-40-40H700C640 40 520 20 440 110 360 200 250 150 170 250 100 340 40 320-40 420Z"/>
-        <path fill="url(#gr)" d="M1960-40H1160C1250 30 1320 160 1450 140 1570 120 1610 40 1710 100 1800 150 1870 280 1960 290Z"/>
-        <path fill="url(#gw)" d="M1960-40H1700C1750 70 1800 190 1960 230Z"/>
-        <path fill="url(#gr)" d="M1960 340C1850 430 1900 570 1830 690 1770 790 1850 900 1960 960Z"/>
-        <path fill="url(#gr)" d="M1960 1120H1120C1240 1010 1380 1070 1490 980 1600 890 1710 960 1810 860 1870 800 1920 790 1960 780Z"/>
-        <path fill="url(#gw)" d="M1960 1120H1740C1790 1040 1860 1010 1960 980Z"/>
-        <path fill="url(#${light ? 'gr' : 'gk'})" d="M-40 1120H620C520 1020 400 1060 310 970 220 880 110 900-40 780Z"/>
-        <path fill="url(#gr)" d="M-40 1120H330C270 1060 190 1070 120 1010 60 960 10 960-40 930Z"/>
-        <path fill="url(#gw)" d="M-40 1120H130C100 1080 50 1060-40 1050Z"/>
-        <path fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="10" stroke-linecap="round" d="M60 60C200 40 330 60 420 20M1500 90C1560 70 1620 40 1680 60M1560 1010C1650 960 1740 990 1820 910M70 980C150 1000 230 1040 300 1040"/>
-        <circle cx="560" cy="170" r="16" fill="url(#gr)"/><circle cx="610" cy="120" r="8" fill="url(#gr)"/><circle cx="1090" cy="70" r="12" fill="url(#gr)"/>
-        <circle cx="1040" cy="1020" r="14" fill="url(#gr)"/><circle cx="700" cy="1040" r="9" fill="url(#gr)"/><circle cx="1850" cy="620" r="10" fill="url(#gw)"/>
-      </g></svg>`;
+  /* Backdrop: the artwork plate. "rank" has the table panel painted in, "clean" is only the liquid frame.
+     With an own background picture the panels are drawn in CSS instead (positions cannot be known). */
+  const plate = () => !cfg.bg;
+  function backdrop(kind) {
+    return `<div class="bg" style="background-image:url('${cfg.bg ? esc(cfg.bg) : 'img/bg-' + kind + '.webp'}')"></div>`;
   }
-  function frame(h1, h2, body, cls) {
-    return `<div class="sc ${cfg.scene === 'light' ? 'light' : ''} ${cls || ''}">${backdrop()}<div class="brand">${img(cfg.logo)}<span>${esc(cfg.title)}</span></div>` +
-      `<div class="hd"><h1 style="font-size:${Math.min(82, Math.floor(1240 / (Math.max(1, String(h1).length) * .8)))}px">${esc(h1)}</h1><h2>${esc(h2)}</h2></div><div class="body">${body}</div>` +
+  function frame(h1, h2, body, cls, kind) {
+    const fit = plate() && kind === 'rank' ? 800 : 1240;
+    return `<div class="sc ${plate() ? 'art' : ''} ${plate() && kind === 'rank' ? 'plate' : ''} ${cls || ''}">${backdrop(kind || 'clean')}<div class="brand">${img(cfg.logo)}<span>${esc(cfg.title)}</span></div>` +
+      `<div class="hd"><h1 style="font-size:${Math.min(plate() && kind === 'rank' ? 70 : 82, Math.floor(fit / (Math.max(1, String(h1).length) * .8)))}px">${esc(h1)}</h1><h2>${esc(h2)}</h2></div><div class="body">${body}</div>` +
       (cfg.sponsors.length ? `<div class="spons">${cfg.sponsors.map(s => img(s)).join('')}</div>` : '') + '</div>';
   }
   /* Left side: the leading team (player photos, or the logo when there are none) */
@@ -214,11 +197,11 @@
     const ph = t.players.filter(p => p.photo);
     const mid = Math.floor((ph.length - 1) / 2);
     return `<div class="hero"><div class="ppl">${ph.length ? ph.map((p, i) => `<img src="${esc(p.photo)}" style="z-index:${10 - Math.abs(i - mid)};height:${100 - Math.abs(i - mid) * 9}%">`).join('') : logo(t)}</div>` +
-      `<div class="hb lq"><b>${esc(label)}</b>${flag(t)}<span>${esc(t.name || t.tag)}</span></div></div>`;
+      `${plate() ? '<img class="rib" src="img/ribbon.png" alt="">' : ''}<div class="hb lq"><b>${esc(label)}</b>${flag(t)}<span>${esc(t.name || t.tag)}</span></div></div>`;
   }
   function table(list, cols, moves) {
-    const n = list.length, two = n > 10, per = two ? Math.ceil(n / 2) : n;
-    const th = Math.max(30, Math.min(62, Math.floor(560 / (per + 1))));
+    const n = list.length, two = !plate() && n > 10, per = two ? Math.ceil(n / 2) : n;
+    const th = plate() ? Math.max(18, Math.min(62, Math.floor(574 / (n + 1)))) : Math.max(30, Math.min(62, Math.floor(560 / (per + 1))));
     const mv = r => !moves ? '' : moves[r.t.id] > 0 ? '<i class="up"></i>' : moves[r.t.id] < 0 ? '<i class="dn"></i>' : '<i class="eq"></i>';
     const hd = `<div class="tr h"><span></span><span>RANK</span><span></span><span></span><span class="nm">TEAMS</span>${cols.map(c => `<span>${c[0]}</span>`).join('')}</div>`;
     const row = (r, i) => `<div class="tr ${i === 0 ? 'top1' : ''}" style="animation-delay:${i * 35}ms"><span class="mv">${mv(r)}</span><span class="rk">#${i + 1}</span>${flag(r.t) || '<span></span>'}${r.t.logo ? img(r.t.logo, 'lg') : '<span></span>'}<span class="nm">${esc(r.t.tag || r.t.name)}</span>${cols.map(c => `<span class="${c[2] || ''}">${c[1](r)}</span>`).join('')}</div>`;
@@ -228,7 +211,7 @@
   }
   function ranking(h1, h2, list, cols, moves) {
     if (!list.length) return frame(h1, h2, '');
-    return frame(h1, h2, hero(list[0].t, '#1') + table(list, cols, moves), list.length > 10 ? 'wide' : '');
+    return frame(h1, h2, hero(list[0].t, '#1') + table(list, cols, moves), !plate() && list.length > 10 ? 'wide' : '', 'rank');
   }
   function playerCard(pid, i, withTeam) {
     const e = ix.p[pid]; if (!e) return '';
