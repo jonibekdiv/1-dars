@@ -82,6 +82,14 @@ const Store = (() => {
     poll(ms) { if (useSb) setInterval(() => ['live', 'history'].forEach(k => load(k).then(d => d && emit(k, d))), ms); },
     async user() { if (!useSb) return { email: 'local' }; const { data } = await sb.auth.getSession(); return data.session ? data.session.user : null; },
     async signIn(email, password) { const { error } = await sb.auth.signInWithPassword({ email, password }); return error ? error.message : null; },
+    /* Returns {error} or {needConfirm:true} when the email must be confirmed first */
+    async signUp(email, password) {
+      const { data, error } = await sb.auth.signUp({ email, password });
+      if (error) return { error: error.message };
+      if (data.session) return {};
+      const err = await this.signIn(email, password);
+      return err ? { needConfirm: true } : {};
+    },
     async signOut() { if (useSb) await sb.auth.signOut(); }
   };
 })();

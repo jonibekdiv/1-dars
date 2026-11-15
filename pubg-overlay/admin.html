@@ -24,8 +24,10 @@
   <form id="loginForm">
     <h2>Admin kirish</h2>
     <input name="email" type="email" placeholder="Email" required>
-    <input name="password" type="password" placeholder="Parol" required>
-    <button>Kirish</button>
+    <input name="password" type="password" placeholder="Parol (kamida 6 belgi)" minlength="6" required>
+    <button class="pri">Kirish</button>
+    <button type="button" id="signUp">Ro'yxatdan o'tish</button>
+    <p class="hint">Birinchi ro'yxatdan o'tgan hisob admin bo'ladi.</p>
     <p id="loginErr"></p>
   </form>
 </div>

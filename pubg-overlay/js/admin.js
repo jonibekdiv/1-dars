@@ -377,6 +377,14 @@
     await Store.init();
     if (!(await Store.user())) {
       $('#login').hidden = false;
+      $('#signUp').addEventListener('click', async () => {
+        const f = $('#loginForm');
+        if (!f.reportValidity()) return;
+        const r = await Store.signUp(f.email.value, f.password.value);
+        if (r.error) { $('#loginErr').textContent = r.error; return; }
+        if (r.needConfirm) { $('#loginErr').textContent = 'Emailingizga tasdiqlash xati yuborildi. Tasdiqlab, keyin "Kirish" ni bosing.'; return; }
+        $('#login').hidden = true; start();
+      });
       $('#loginForm').addEventListener('submit', async e => {
         e.preventDefault();
         const f = e.target, err = await Store.signIn(f.email.value, f.password.value);
