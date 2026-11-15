@@ -13,6 +13,7 @@ const U = {
       stages: null, stageId: 'main',
       points: { place: [10, 6, 5, 4, 3, 2, 1, 1], kill: 1 },
       matchPoint: { on: false, target: 60 },
+      brand: { pos: 'tr', size: 'm', name: true },
       auto: { teamElim: true, stealer: true, firstBlood: true, rampage: 4, domination: 7 },
       zoneShowAt: 10
     };
@@ -23,6 +24,7 @@ const U = {
     c.points = Object.assign({ place: [10, 6, 5, 4, 3, 2, 1, 1], kill: 1 }, c.points);
     c.auto = Object.assign(U.defConfig().auto, c.auto);
     c.matchPoint = Object.assign({ on: false, target: 60 }, c.matchPoint);
+    c.brand = Object.assign({ pos: 'tr', size: 'm', name: true }, c.brand);
     c.teams = c.teams || []; c.sponsors = c.sponsors || [];
     c.teams.forEach(t => { t.players = t.players || []; });
     // stages (days / groups): each has its own matches and standings
@@ -142,7 +144,7 @@ const U = {
   /* Slim copy of the config for the public standings page (no player photos, no backgrounds) */
   publicConfig(cfg) {
     return {
-      title: cfg.title, logo: cfg.logo, accent: cfg.accent, stages: cfg.stages, stageId: cfg.stageId,
+      title: cfg.title, logo: cfg.logo, accent: cfg.accent, brand: cfg.brand, stages: cfg.stages, stageId: cfg.stageId,
       points: cfg.points, matchPoint: cfg.matchPoint,
       teams: cfg.teams.map(t => ({ id: t.id, tag: t.tag, name: t.name, flag: t.flag, logo: t.logo, players: t.players.map(p => ({ id: p.id, name: p.name })) }))
     };

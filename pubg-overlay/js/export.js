@@ -39,14 +39,28 @@ const Exporter = (() => {
     if (bg) c.drawImage(bg, 0, 0, 1920, 1080);
     c.shadowColor = 'rgba(0,0,0,.55)'; c.shadowBlur = 14; c.shadowOffsetY = 4;
 
-    // title
-    const size = Math.min(70, Math.floor(800 / (o.title.length * .8)));
-    text(c, o.title, 960, 88, `${size}px ${SLAB}`, 'center');
-    c.font = `600 33px ${FONT}`;
-    text(c, o.sub.filter(Boolean).join('  ▪  ').split('').join(' '), 960, 150, `600 30px ${FONT}`, 'center', '#fff', 820);
-    // brand (top right)
-    if (brand) contain(c, brand, 1486, 66, 84, 84);
-    text(c, o.brand.title, brand ? 1582 : 1600, 108, `800 22px ${FONT}`, brand ? 'left' : 'center', '#fff', brand ? 140 : 230);
+    // brand (position / size / name from the settings)
+    const B = Object.assign({ pos: 'tr', size: 'm', name: true }, o.brand), bname = B.name ? o.brand.title : '';
+    const SZ = { s: [190, 70, 20], m: [250, 104, 25], l: [300, 140, 30] }[B.size] || [250, 104, 25];
+    const fitImg = (im, mw, mh) => { if (!im) return [0, 0]; const iw = im.naturalWidth || im.width || mw, ih = im.naturalHeight || im.height || mh, k = Math.min(mw / iw, mh / ih); return [iw * k, ih * k]; };
+    if (B.pos === 'tr' || B.pos === 'tl') {
+      const cx = B.pos === 'tr' ? 1600 : 300, [w, h] = fitImg(brand, SZ[0], SZ[1]);
+      const total = h + (bname ? (h ? 8 : 0) + SZ[2] : 0); let y = 30 + Math.max(0, (128 - total) / 2);
+      if (brand) { c.drawImage(brand, cx - w / 2, y, w, h); y += h + 8; }
+      if (bname) text(c, bname.toUpperCase(), cx, y + SZ[2] / 2, `800 ${SZ[2]}px ${FONT}`, 'center', '#fff', SZ[0]);
+    } else if (B.pos === 'top') {
+      const [w, h] = fitImg(brand, 360, SZ[1] * .62); c.font = `800 ${SZ[2] + 4}px ${FONT}`;
+      const tw = bname ? Math.min(600, c.measureText(bname.toUpperCase()).width) : 0, gap = brand && bname ? 16 : 0;
+      let x = 960 - (w + gap + tw) / 2; const cy = 18 + Math.max(h, SZ[2] + 4) / 2;
+      if (brand) { c.drawImage(brand, x, cy - h / 2, w, h); x += w + gap; }
+      if (bname) text(c, bname.toUpperCase(), x, cy, `800 ${SZ[2] + 4}px ${FONT}`, 'left', '#fff', 600);
+    }
+    // title (moves down under a logo placed at the top centre)
+    const corner = B.pos === 'tr' || B.pos === 'tl', topBrand = B.pos === 'top';
+    const size = topBrand ? 58 : Math.min(70, Math.floor((corner ? 800 : 1240) / (o.title.length * .8)));
+    const ty = topBrand ? 150 : 88;
+    text(c, o.title, 960, ty, `${size}px ${SLAB}`, 'center');
+    text(c, o.sub.filter(Boolean).join('  ▪  ').split('').join(' '), 960, ty + (topBrand ? 50 : 62), `600 ${topBrand ? 26 : 30}px ${FONT}`, 'center', '#fff', corner ? 820 : 1300);
 
     // leading team
     const hx = 174, hy = 242, hw = 862, hh = 657;
@@ -57,6 +71,7 @@ const Exporter = (() => {
       const order = photos.map((p, i) => i).sort((a, b) => Math.abs(b - mid) - Math.abs(a - mid));   // centre drawn last = in front
       order.forEach(i => { const h = hh * (1 - Math.abs(i - mid) * .09); coverTop(c, photos[i], x0 + i * step, hy + hh - h, w, h); });
     } else if (hlogo) contain(c, hlogo, hx + hw * .2, hy + 40, hw * .6, hh * .62);
+    else if (o.hero.tag) text(c, String(o.hero.tag).toUpperCase(), hx + hw / 2, hy + hh * .42, `800 150px ${FONT}`, 'center', 'rgba(255,255,255,.9)', hw * .8);
     c.restore();
     if (ribbon) c.drawImage(ribbon, 315, 705, 605, 213);
     else { const g = c.createLinearGradient(315, 0, 920, 0); g.addColorStop(0, '#ff4a5e'); g.addColorStop(.4, '#d0142c'); g.addColorStop(1, '#810c1b'); c.fillStyle = g; c.fillRect(330, 752, 580, 110); }
@@ -100,10 +115,15 @@ const Exporter = (() => {
     });
 
     // sponsors
+    if (B.pos === 'bottom' && (brand || bname)) sponsors.unshift(brand || null);   // brand leads the sponsor strip
     if (sponsors.length) {
-      const sh = 46, gap = 44, ws = sponsors.map(s => Math.min(220, s.width * sh / s.height));
+      const sh = 46, gap = 44, ws = sponsors.map(s => s ? Math.min(220, (s.naturalWidth || s.width) * sh / (s.naturalHeight || s.height)) : 0);
       let sx = 967 - (ws.reduce((a, b) => a + b, 0) + gap * (ws.length - 1)) / 2;
-      sponsors.forEach((s, i) => { contain(c, s, sx, 1008 - sh / 2, ws[i], sh); sx += ws[i] + gap; });
+      sponsors.forEach((s, i) => {
+        if (s) contain(c, s, sx, 1008 - sh / 2, ws[i], sh);
+        sx += ws[i] + gap;
+        if (i === 0 && B.pos === 'bottom' && bname) { c.font = `800 22px ${FONT}`; const tw = c.measureText(bname.toUpperCase()).width; text(c, bname.toUpperCase(), sx - gap + 12, 1008, `800 22px ${FONT}`); sx += tw + 12; }
+      });
     }
     return new Promise(res => { try { cv.toBlob(res, 'image/png'); } catch (e) { res(null); } });
   }

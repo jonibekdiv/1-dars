@@ -285,6 +285,10 @@
       <div class="row"><span style="width:64px">${up(cfg.logo, 'logo', '', 'Turnir logosi')}</span><div style="flex:1"><label>Turnir nomi<input data-g="title" value="${esc(cfg.title)}"></label></div></div>
       <div class="row"><label>Asosiy rang<input type="color" data-g="accent" value="${esc(cfg.accent === '#ff6a1a' ? '#d0142c' : cfg.accent)}"></label>
         <label>O'z fon rasmingiz (ixtiyoriy, 1920×1080)<span class="row" style="margin:0"><span style="width:96px">${up(cfg.bg, 'bg', '', 'Fon rasmi')}</span>${cfg.bg ? '<button class="dng" data-a="delBg">O\'chirish</button>' : ''}</span></label></div>
+      <h3 style="margin-top:12px">Logo va nom sahnalarda</h3>
+      <div class="row"><label style="flex:1">Joylashuvi<select data-g="bpos">${[['tr', 'O\'ng yuqori burchak'], ['tl', 'Chap yuqori burchak'], ['top', 'Tepada markazda (sarlavha ustida)'], ['bottom', 'Pastda, homiylar qatorida'], ['none', 'Ko\'rsatilmasin']].map(o => `<option value="${o[0]}" ${cfg.brand.pos === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></label>
+        <label>O'lchami<select data-g="bsize">${[['s', 'Kichik'], ['m', 'O\'rta'], ['l', 'Katta']].map(o => `<option value="${o[0]}" ${cfg.brand.size === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></label></div>
+      <div class="row"><label><span><input type="checkbox" data-g="bname" ${cfg.brand.name ? 'checked' : ''}> Logo yonida turnir nomini ham yozish</span></label></div>
       <h3 style="margin-top:12px">Homiylar</h3>
       <div class="spn">${cfg.sponsors.map((s, i) => `<span class="up"><img src="${esc(s)}"><button class="dng" data-a="delSp" data-id="${i}" style="position:absolute;right:2px;top:2px;padding:0 6px">✕</button></span>`).join('')}${up('', 'sponsor', '', 'Homiy logosi')}</div></div>
     <div class="box"><h3>Bosqichlar (kun / guruh / final)</h3><p class="hint">Har bir bosqichning o'z matchlari va o'z jadvali bor. Joriy bosqich ekranda ko'rsatiladi.</p>
@@ -387,9 +391,9 @@
     const blob = await Exporter.ranking({
       title: overall ? 'OVERALL RANKING' : 'MATCH RESULTS',
       sub: overall ? [cfg.stage, 'POST MATCH ' + sh.matches.length] : [cfg.stage, 'MATCH ' + last.no, last.map],
-      brand: { logo: cfg.logo, title: cfg.title }, sponsors: cfg.sponsors, bg: cfg.bg,
+      brand: { logo: cfg.logo, title: cfg.title, pos: cfg.brand.pos, size: cfg.brand.size, name: cfg.brand.name }, sponsors: cfg.sponsors, bg: cfg.bg,
       note: overall && mp.on ? 'MATCH POINT TARGET ' + mp.target : '',
-      hero: { name: rows[0].t.name || rows[0].t.tag, flag: U.flagUrl(rows[0].t.flag), logo: rows[0].t.logo, photos: rows[0].t.players.map(p => p.photo).filter(Boolean) },
+      hero: { name: rows[0].t.name || rows[0].t.tag, tag: rows[0].t.tag, flag: U.flagUrl(rows[0].t.flag), logo: rows[0].t.logo, photos: rows[0].t.players.map(p => p.photo).filter(Boolean) },
       rows: rows.map((r, i) => ({ rank: i + 1, mv: overall ? (moves[r.t.id] || 0) : null, flag: U.flagUrl(r.t.flag), logo: r.t.logo, tag: r.t.tag || r.t.name, mark: overall && mp.champ === r.t.id ? 'champ' : overall && mp.mp[r.t.id] ? 'mp' : '', cols: [overall ? r.wwcd : (r.wwcd ? '●' : '0'), r.pp, r.elims, r.total] }))
     });
     if (blob) download((overall ? 'overall' : 'match-' + last.no) + '.png', blob); else alert('Rasm yaratilmadi');
@@ -563,6 +567,9 @@
       if (k === 'place') cfg.points.place = el.value.split(',').map(s => +s.trim() || 0);
       else if (k === 'kill') cfg.points.kill = +el.value || 0;
       else if (k === 'mpOn') cfg.matchPoint.on = el.checked;
+      else if (k === 'bpos') cfg.brand.pos = el.value;
+      else if (k === 'bsize') cfg.brand.size = el.value;
+      else if (k === 'bname') cfg.brand.name = el.checked;
       else if (k === 'mpTarget') cfg.matchPoint.target = Math.max(1, +el.value || 1);
       else if (k === 'teamElim' || k === 'stealer' || k === 'firstBlood') cfg.auto[k] = el.checked;
       else if (k === 'rampage' || k === 'domination') cfg.auto[k] = +el.value || 0;

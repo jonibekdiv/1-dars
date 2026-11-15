@@ -220,11 +220,20 @@
   function backdrop(kind) {
     return `<div class="bg" style="background-image:url('${cfg.bg ? esc(cfg.bg) : 'img/bg-' + kind + '.webp'}')"></div>`;
   }
+  /* Tournament logo + name: position, size and name visibility are chosen in the admin settings */
+  function brandHtml(where) {
+    const B = cfg.brand, name = B.name && cfg.title;
+    if (B.pos === 'none' || (!cfg.logo && !name)) return '';
+    if ((where === 'bottom') !== (B.pos === 'bottom')) return '';
+    return `<div class="brand b-${esc(B.pos)} s-${esc(B.size)} ${cfg.logo ? '' : 'noimg'}">${cfg.logo ? img(cfg.logo) : ''}${name ? `<span>${esc(cfg.title)}</span>` : ''}</div>`;
+  }
   function frame(h1, h2, body, cls, kind) {
-    const fit = plate() ? 800 : 1240;                          // on the artwork the title must stay clear of the logo corner
-    return `<div class="sc ${plate() ? 'art' : ''} ${plate() && kind === 'rank' ? 'plate' : ''} ${cls || ''}">${backdrop(kind || 'clean')}<div class="brand">${img(cfg.logo)}<span>${esc(cfg.title)}</span></div>` +
+    const corner = cfg.brand.pos === 'tr' || cfg.brand.pos === 'tl';
+    const fit = plate() && corner ? 800 : 1240;                // a title next to a corner logo must stay clear of it
+    const spons = cfg.sponsors.map(s => img(s)).join(''), bb = brandHtml('bottom');
+    return `<div class="sc ${plate() ? 'art' : ''} ${plate() && kind === 'rank' ? 'plate' : ''} bp-${esc(cfg.brand.pos)} ${cls || ''}">${backdrop(kind || 'clean')}${brandHtml('top')}` +
       `<div class="hd"><h1 style="font-size:${Math.min(plate() ? 74 : 82, Math.floor(fit / (Math.max(1, String(h1).length) * .8)))}px">${esc(h1)}</h1><h2>${esc(h2)}</h2></div><div class="body">${body}</div>` +
-      (cfg.sponsors.length ? `<div class="spons">${cfg.sponsors.map(s => img(s)).join('')}</div>` : '') + '</div>';
+      (spons || bb ? `<div class="spons">${bb}${spons}</div>` : '') + '</div>';
   }
   /* Left side: the leading team (player photos, or the logo when there are none) */
   function hero(t, label) {

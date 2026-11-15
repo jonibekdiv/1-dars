@@ -388,3 +388,38 @@ img { display: block; object-fit: contain; }
 .hb::before { border: 0; border-image: none; background: url('../img/ribbon.png') center / 100% 100% no-repeat; left: -46px; right: -46px; top: -34px; bottom: -36px; filter: drop-shadow(0 10px 18px rgba(0, 0, 0, .5)); }
 .sc.plate .hb::before { display: none; }
 .pc .ph { border-radius: 12px 12px 0 0; }
+
+/* ---------- Tournament brand on the scenes (position / size from the settings) ---------- */
+.sc .brand, .sc.art .brand { position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  right: auto; left: auto; top: 30px; width: var(--bw); height: auto; max-width: none; text-align: center; line-height: 1;
+  font-size: var(--bf); font-weight: 800; letter-spacing: .06em; text-shadow: 0 2px 10px rgba(0, 0, 0, .8); }
+.sc .brand img, .sc.art .brand img { width: auto; height: auto; max-width: 100%; max-height: var(--bh); object-fit: contain; filter: drop-shadow(0 4px 12px rgba(0, 0, 0, .6)); }
+.brand.s-s { --bw: 190px; --bh: 70px; --bf: 20px; }
+.brand.s-m { --bw: 250px; --bh: 104px; --bf: 25px; }
+.brand.s-l { --bw: 300px; --bh: 140px; --bf: 30px; }
+/* top right = the logo spot of the artwork; top left mirrors it */
+.sc .brand.b-tr { left: calc(1600px - var(--bw) / 2); }
+.sc .brand.b-tl { left: calc(300px - var(--bw) / 2); }
+/* top centre: logo and name side by side above the title, the title moves down */
+.sc .brand.b-top { left: 50%; transform: translateX(-50%); top: 18px; width: auto; max-width: 1100px; flex-direction: row; gap: 16px; font-size: calc(var(--bf) + 4px); }
+.sc .brand.b-top img { max-height: calc(var(--bh) * .62); max-width: 360px; }
+.sc.bp-top .hd { padding-top: 104px; }
+.sc.art.plate.bp-top .hd { top: 112px; padding-top: 0; }
+.sc.art.plate.bp-top .hd h1 { font-size: 58px !important; }
+.sc.art.plate.bp-top .hd h2 { font-size: 26px; margin-top: 4px; }
+/* without a corner logo the title may use the full width */
+.sc.art.plate.bp-top .hd, .sc.art.plate.bp-bottom .hd, .sc.art.plate.bp-none .hd { left: 260px; width: 1400px; }
+/* bottom: first item of the sponsor strip */
+.sc .spons .brand, .sc.art .spons .brand { position: static; flex-direction: row; gap: 12px; width: auto; height: 100%; transform: none; padding-right: 30px; margin-right: 6px; border-right: 2px solid rgba(255, 255, 255, .25); font-size: 22px; text-shadow: none; white-space: nowrap; }
+.sc .spons .brand img, .sc.art .spons .brand img { max-height: 50px; max-width: 200px; height: auto; width: auto; filter: none; }
+
+/* a team without a logo: its tag on a piece of the liquid panel instead of a flat grey box */
+.hero .ppl .nolg, .champ .bd .nolg, .cards .side .nolg, .vt .nolg, .mv1 .ph .nolg {
+  background: url('../img/panel.png') center / 100% 100% no-repeat; border: 0; border-radius: 0;
+  text-shadow: 0 4px 16px rgba(0, 0, 0, .6); letter-spacing: .02em; filter: drop-shadow(0 12px 24px rgba(0, 0, 0, .5)); }
+.hero .ppl .nolg { width: 380px; height: 300px; font-size: 120px; margin: 40px auto auto; }
+
+/* ---------- lower third: room for wide logos ---------- */
+#base .lg, #base .lg img { width: auto; }
+#base .lg { min-width: 84px; padding: 0 12px; }
+#base .lg img { height: auto; max-height: 66px; max-width: 170px; }
