@@ -95,7 +95,7 @@ const U = {
     const add = (pid, s, surv, counted) => {
       const a = acc[pid] || (acc[pid] = { k: 0, kn: 0, dmg: 0, surv: 0, n: 0 });
       a.k += s.k || 0; a.kn += s.kn || 0; a.dmg += +s.dmg || 0;
-      if (counted) { a.surv += surv || 0; a.n++; }
+      if (counted && surv != null) { a.surv += surv; a.n++; }
     };
     hist.matches.forEach(m => Object.keys(m.players || {}).forEach(pid => add(pid, m.players[pid], m.players[pid].surv, true)));
     if (live) Object.keys(live.players).forEach(pid => add(pid, live.players[pid], 0, false));

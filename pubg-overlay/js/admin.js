@@ -25,6 +25,11 @@
     settle();
     saveLive(); render();
   }
+  function log(e) {
+    live.log = live.log || [];
+    live.log.push(Object.assign({ t: elapsed() }, e));
+    if (live.log.length > 12) live.log.splice(0, live.log.length - 12);
+  }
   function banner(b) {
     live.banners.push(Object.assign({ id: U.uid(), ts: Date.now() }, b));
     if (live.banners.length > 12) live.banners.splice(0, live.banners.length - 12);
@@ -39,12 +44,13 @@
     all.forEach(x => { if (x.rec.place && !x.rec.m && !x.tl.out && x.rec.place !== 1) delete x.rec.place; });
     all.filter(x => x.tl.out && !x.rec.place).forEach(x => {
       x.rec.place = all.filter(y => !y.rec.place).length;
+      log({ k: 'out', tid: x.t.id, place: x.rec.place });
       if (cfg.auto.teamElim) banner({ type: 'teamelim', tid: x.t.id, by: lastKillTeam && lastKillTeam !== x.t.id ? lastKillTeam : null, place: x.rec.place });
     });
     // automatic winner: the single team left standing
     all.forEach(x => { if (x.rec.place === 1 && !x.rec.m && (x.tl.out || all.some(y => y !== x && !y.rec.place))) delete x.rec.place; });
     const left = all.filter(x => !x.rec.place);
-    if (left.length === 1 && teams.length > 1 && !left[0].tl.out) left[0].rec.place = 1;
+    if (left.length === 1 && teams.length > 1 && !left[0].tl.out && !all.some(x => x.rec.place === 1)) left[0].rec.place = 1;
   }
 
   /* ---------- kill / knock logic ---------- */
@@ -53,6 +59,7 @@
   function die(pid, credit) {
     const v = P(pid), knocker = v.by;
     v.st = 'd'; v.dt = elapsed(); delete v.by;
+    log({ k: 'kill', a: credit && ix.p[credit] ? credit : null, v: pid });
     if (!credit || !ix.p[credit]) return;
     const A = P(credit), at = teamOf(credit);
     A.k++; lastKillTeam = at.id;
@@ -71,17 +78,20 @@
   function knock(pid) {
     act(() => {
       const v = P(pid), vt = teamOf(pid);
+      if (!live.startedAt) live.startedAt = Date.now();
       if (v.st === 'd') return;
       if (v.st === 'k') { v.st = 'a'; delete v.by; return; }
       v.st = 'k';
       const a = attackerFor(vt);
       if (a) { v.by = a; P(a).kn++; } else delete v.by;
+      log({ k: 'knock', a, v: pid });
       wipeCheck(vt);
     });
   }
   function kill(pid) {
     act(() => {
       const v = P(pid), vt = teamOf(pid);
+      if (!live.startedAt) live.startedAt = Date.now();
       if (v.st === 'd') { v.st = 'a'; delete v.dt; return; }
       die(pid, attackerFor(vt) || v.by);
       wipeCheck(vt);
@@ -98,7 +108,7 @@
         c.width = Math.round(im.width * s); c.height = Math.round(im.height * s);
         c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
         URL.revokeObjectURL(im.src);
-        res(c.toDataURL('image/webp', .85));
+        res(c.toDataURL('image/webp', .82));
       };
       im.onerror = () => res('');
       im.src = URL.createObjectURL(file);
@@ -119,6 +129,18 @@
           `<button class="bk ${p.st === 'k' ? 'on' : ''}" data-a="knock" data-id="${p.id}" title="Nok">N</button><button class="bd ${p.st === 'd' ? 'on' : ''}" data-a="kill" data-id="${p.id}" title="O'ldi">☠</button></div>`).join('') + '</div>';
     }).join('') || '<div class="box">Jamoalar yo\'q. "Jamoalar" bo\'limida qo\'shing.</div>';
   }
+  function atkHtml() {
+    const se = sel && ix.p[sel];
+    return se ? `<span class="hint">HUJUMCHI</span><b>${esc(se.t.tag)} · ${esc(se.p.name)}</b><button data-a="unsel">✕ Esc</button>`
+      : '<span class="hint">Kill/nok: avval <b>hujumchi ismini</b> bosing, keyin qurbonning <b>N</b> yoki <b>☠</b> tugmasini. Hech kim tanlanmasa — zonadan o\'lim.</span>';
+  }
+  function logHtml() {
+    const nm = pid => ix.p[pid] ? `${esc(ix.p[pid].t.tag)} ${esc(ix.p[pid].p.name)}` : '?';
+    const L = (live.log || []).slice().reverse();
+    if (!L.length) return '<p class="hint">Hali harakat yo\'q.</p>';
+    return L.map(e => `<div class="lg ${e.k}"><i>${U.mmss(e.t)}</i>${e.k === 'out' ? `<b>${esc((ix.t[e.tid] || {}).tag || '?')}</b> yopildi · #${e.place}`
+      : e.k === 'knock' ? `${e.a ? nm(e.a) : 'Zona'} <b>N</b> ${nm(e.v)}` : `${e.a ? nm(e.a) : 'Zona'} <b>☠</b> ${nm(e.v)}`}</div>`).join('');
+  }
   function sideHtml() {
     const se = sel && ix.p[sel], sh = live.show;
     const tg = (k, l) => `<button class="${sh[k] ? 'on' : ''}" data-a="show" data-v="${k}">${l}</button>`;
@@ -126,10 +148,7 @@
     const dis = se ? '' : 'disabled';
     const winner = cfg.teams.find(t => (live.teams[t.id] || {}).place === 1);
     const tid = ui.team || (winner && winner.id) || (se && se.t.id) || '';
-    return `<div class="atk ${se ? 'has' : ''}">${se ? `<span class="hint">TANLANGAN (hujumchi) — Esc bilan bekor</span><b>${esc(se.t.tag)} · ${esc(se.p.name)}</b>` :
-      '<span class="hint">O\'yinchi ismini bosing → keyin qurbonning <b style="display:inline;font-size:inherit">N</b> (nok) yoki <b style="display:inline;font-size:inherit">☠</b> (kill) tugmasini bosing. Tanlanmagan bo\'lsa — zonadan o\'lim (kill hech kimga yozilmaydi).</span>'}</div>
-    <input id="filter" placeholder="Qidirish: jamoa yoki o'yinchi…" value="${esc(filter)}" style="width:100%;margin-bottom:10px">
-    <div class="box"><h3>Ekranda ko'rsatish</h3><div class="g3">${tg('ranking', 'Reyting')}${tg('lower', 'Pastki banner')}${tg('wwcd', 'Final jamoalar')}</div></div>
+    return `<div class="box"><h3>Ekranda ko'rsatish</h3><div class="g3">${tg('ranking', 'Reyting')}${tg('lower', 'Pastki banner')}${tg('wwcd', 'Final jamoalar')}</div></div>
     <div class="box"><h3>Zona</h3><div class="row"><input type="number" data-u="zone" value="${ui.zone}" style="max-width:80px"><span>sek</span><button class="pri" data-a="zone">Boshlash</button><button data-a="zoneOff">To'xtatish</button></div>
       <p class="hint">Oxirgi ${cfg.zoneShowAt} soniyada "CIRCLE CLOSING IN" chiqadi.</p></div>
     <div class="box"><h3>O'yinchi bannerlari ${se ? '' : '(avval o\'yinchini tanlang)'}</h3>
@@ -143,6 +162,7 @@
       <div class="g2" style="margin-bottom:6px">${sc('results', 'Match natijasi')}${sc('overall', 'Umumiy reyting')}${sc('mvp', 'Top fraggers')}<button data-a="scene" data-v="" class="${sh.scene ? 'dng' : ''}">Sahnani yopish</button></div>
       <div class="row"><select data-u="team" style="flex:1"><option value="">Jamoa…</option>${cfg.teams.map(t => `<option value="${t.id}" ${t.id === tid ? 'selected' : ''}>${esc(t.tag)} — ${esc(t.name)}</option>`).join('')}</select></div>
       <div class="g2">${sc('team', 'Jamoa statistikasi')}${sc('champion', '🏆 Chempion')}</div></div>
+    <div class="box"><h3>Oxirgi harakatlar</h3><div class="log">${logHtml()}</div></div>
     <div class="box"><h3>Match</h3>
       <div class="row"><label>№<input type="number" data-l="matchNo" value="${live.matchNo}" style="width:60px"></label><label style="flex:1">Xarita<input data-l="map" value="${esc(live.map)}"></label></div>
       <div class="g2"><button data-a="timer" class="${live.startedAt ? '' : 'pri'}">${live.startedAt ? 'Taymerni qayta boshlash' : '▶ Match boshlandi'}</button><button data-a="finish" class="pri">✔ Matchni yakunlash</button></div>
@@ -208,8 +228,9 @@
     $('#undo').disabled = !undo.length;
     const m = $('#main');
     if (tab === 'live') {
-      if (!$('#grid')) m.innerHTML = '<div class="live"><div id="grid"></div><aside id="side"></aside></div>';
+      if (!$('#grid')) m.innerHTML = `<div class="live"><div><div id="bar"><div id="atk"></div><input id="filter" placeholder="Qidirish: jamoa yoki o'yinchi…" value="${esc(filter)}"></div><div id="grid"></div></div><aside id="side"></aside></div>`;
       $('#grid').innerHTML = gridHtml();
+      $('#atk').innerHTML = atkHtml(); $('#atk').classList.toggle('has', !!(sel && ix.p[sel]));
       const a = document.activeElement, keepFocus = a && a.closest && a.closest('#side') && /INPUT|SELECT/.test(a.tagName);
       if (!keepFocus) $('#side').innerHTML = sideHtml();
     } else {
@@ -224,7 +245,7 @@
     const rows = U.liveRanking(cfg, live);
     if (!rows.length) return;
     if (!confirm(`Match ${live.matchNo} yakunlansinmi? Natija saqlanadi va yangi match ochiladi.`)) return;
-    const dur = elapsed();
+    const dur = elapsed(), timed = !!live.startedAt;
     // teams still without a placement get the best free places, by players alive then elims
     const used = new Set(rows.map(r => r.place).filter(Boolean));
     let next = 1;
@@ -235,7 +256,7 @@
     const rec = { no: live.matchNo, map: live.map, teams: {}, players: {} };
     rows.forEach(r => {
       rec.teams[r.t.id] = { place: r.place, elims: r.elims };
-      r.pl.forEach(p => { rec.players[p.id] = { k: p.k || 0, kn: p.kn || 0, dmg: +p.dmg || 0, surv: p.st === 'd' ? (p.dt || 0) : dur }; });
+      r.pl.forEach(p => { rec.players[p.id] = { k: p.k || 0, kn: p.kn || 0, dmg: +p.dmg || 0, surv: !timed ? null : p.st === 'd' ? (p.dt || 0) : dur }; });
     });
     hist.matches.push(rec); saveHist();
     const n = U.defLive(live.matchNo + 1);
@@ -258,6 +279,7 @@
     tab(d) { tab = d.v; $('#main').innerHTML = ''; render(); },
     undo() { if (!undo.length) return; live = U.normLive(JSON.parse(undo.pop())); saveLive(); render(); },
     sel(d) { sel = sel === d.id ? null : d.id; render(); },
+    unsel() { sel = null; render(); },
     kp(d) { act(() => { P(d.id).k++; }); },
     km(d) { act(() => { const p = P(d.id); p.k = Math.max(0, (p.k || 0) - 1); }); },
     knock(d) { knock(d.id); },
@@ -328,7 +350,7 @@
     if (d.c) { // image uploads
       const f = el.files[0]; if (!f) return;
       const big = d.c === 'pphoto' || d.c === 'sponsor';
-      const src = await readImage(f, big ? 300 : 200);
+      const src = await readImage(f, d.c === 'sponsor' ? 360 : d.c === 'pphoto' ? 240 : 200);
       if (!src) return alert('Rasm o\'qilmadi');
       if (d.c === 'tlogo') ix.t[d.id].logo = src;
       else if (d.c === 'pphoto') ix.p[d.id].p.photo = src;
@@ -355,7 +377,11 @@
     if (e.key === 'Escape' && sel) { sel = null; render(); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); A.undo(); }
   });
-  setInterval(() => { $('#clock').textContent = U.mmss(elapsed()); }, 500);
+  setInterval(() => {
+    const r = U.liveRanking(cfg, live);
+    const pl = r.reduce((n, x) => n + x.alive, 0), tm = r.filter(x => !x.out).length;
+    $('#clock').innerHTML = `<small>Tirik</small> ${pl} <small>Jamoa</small> ${tm} <small>Vaqt</small> ${U.mmss(elapsed())}`;
+  }, 500);
 
   /* ---------- boot ---------- */
   Store.onStatus((s, msg) => {

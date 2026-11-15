@@ -29,7 +29,7 @@ const Store = (() => {
     while (pending[key] !== undefined) {
       const data = pending[key]; delete pending[key];
       const { error } = await sb.from(TABLE).upsert({ room, key, data, updated_at: new Date().toISOString() });
-      if (error) { setStatus('error', 'Saqlanmadi: ' + error.message); if (pending[key] === undefined) pending[key] = data; await new Promise(r => setTimeout(r, 2000)); }
+      if (error) { setStatus('error', error.code === '42501' ? 'Bu hisob admin emas — yozish taqiqlangan' : 'Saqlanmadi: ' + error.message); if (pending[key] === undefined) pending[key] = data; await new Promise(r => setTimeout(r, 2000)); }
       else setStatus('ok');
     }
     busy[key] = false;
