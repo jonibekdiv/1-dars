@@ -196,16 +196,37 @@
   const sceneKey = sh => !sh.scene ? '' : sh.scene + (sh.scene === 'mvp1' ? ':' + ((sh.mvp || {}).scope || '') : sh.scene === 'info' ? ':' + ((sh.info || {}).kind || '') : '');
   /* ---------- music ---------- */
   const MU = () => Object.assign({ id: null, playing: false, vol: 70, loop: false, mode: 'list', cmd: null }, live.show.music);
+  const MM = [['champion', '🏆 Chempion'], ['soon', 'Tez orada'], ['break', 'Tanaffus'], ['next', 'Keyingi match'], ['results', 'Match natijasi'], ['overall', 'Umumiy reyting'], ['mvp', 'MVP / Top fraggers'], ['team', 'Jamoa statistikasi'], ['vs', 'A vs B'], ['map', 'Xarita (drop)']];
   function musicHtml() {
-    const m = MU(), cur = cfg.music.find(t => t.id === m.id);
+    const m = MU(), cur = U.track(cfg, m.id), auto = live.show.autoMusic !== false;
     return `<div class="box music"><h3>🎵 Musiqa (OBS'da chalinadi)</h3>
       <div class="now ${m.playing ? 'on' : ''}"><span class="eq"><i></i><i></i><i></i></span><b>${cur ? esc(cur.name) : 'Hech narsa tanlanmagan'}</b><small>${cur ? (m.playing ? 'chalinmoqda' : 'pauza') : ''}</small></div>
-      <div class="g3" style="margin:8px 0"><button data-a="muPrev" ${cfg.music.length ? '' : 'disabled'}>⏮</button><button class="${m.playing ? '' : 'pri'}" data-a="muToggle" ${cfg.music.length ? '' : 'disabled'}>${m.playing ? '⏸ Pauza' : '▶ Chalish'}</button><button data-a="muNext" ${cfg.music.length ? '' : 'disabled'}>⏭</button></div>
+      <div class="g3" style="margin:8px 0"><button data-a="muPrev">⏮</button><button class="${m.playing ? '' : 'pri'}" data-a="muToggle">${m.playing ? '⏸ Pauza' : '▶ Chalish'}</button><button data-a="muNext">⏭</button></div>
       <div class="row"><span>🔈</span><input type="range" min="0" max="100" step="5" data-mu="vol" value="${m.vol}" style="flex:1"><b style="width:38px;text-align:right">${m.vol}%</b></div>
       <div class="row"><button class="${m.mode === 'one' ? 'on' : ''}" data-a="muMode" data-v="one">🔂 Bitta qo'shiq</button><button class="${m.mode === 'list' ? 'on' : ''}" data-a="muMode" data-v="list">🔁 Ro'yxat bo'yicha</button><button data-a="muStop" ${m.id ? '' : 'disabled'}>⏹ To'xtatish</button></div>
-      <div class="tracks">${cfg.music.map((t, i) => `<div class="trk ${t.id === m.id ? 'cur' : ''}"><button class="pl" data-a="muPlay" data-id="${t.id}">${t.id === m.id && m.playing ? '⏸' : '▶'}</button><span>${i + 1}. ${esc(t.name)}</span><button class="dng" data-a="muDel" data-id="${t.id}" title="O'chirish">✕</button></div>`).join('') || '<p class="hint">Hali qo\'shiq yuklanmagan.</p>'}</div>
+      <div class="tracks">${U.tracks(cfg).map((t, i) => `<div class="trk ${t.id === m.id ? 'cur' : ''} ${t.builtin ? 'bi' : ''}"><button class="pl" data-a="muPlay" data-id="${t.id}">${t.id === m.id && m.playing ? '⏸' : '▶'}</button><span>${i + 1}. ${esc(t.name)}</span>${t.builtin ? '' : `<button class="dng" data-a="muDel" data-id="${t.id}" title="O'chirish">✕</button>`}</div>`).join('')}</div>
+      <div class="row automu"><button class="${auto ? 'on' : ''}" data-a="autoMu" style="flex:1">${auto ? '🎬 Sahna musiqasi: YOQILGAN' : '🎬 Sahna musiqasi: O\'CHIQ'}</button><button data-a="mmOpen">${ui.mmOpen ? '▲' : '⚙ Sozlash'}</button></div>
+      ${m.auto ? `<p class="hint" style="margin:4px 0 0">▶ Hozir sahna musiqasi chalinyapti — sahna yopilsa ${m.prev && m.prev.playing ? 'oldingi qo\'shiq davom etadi' : 'to\'xtaydi'}.</p>` : ''}
+      ${ui.mmOpen ? `<div class="mmap">${MM.map(([k, l]) => `<label>${l}<select data-mm="${k}"><option value="">— musiqasiz —</option>${U.tracks(cfg).map(t => `<option value="${t.id}" ${cfg.musicMap[k] === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>`).join('')}
+        <p class="hint">Sahna ochilganda shu musiqa o'zi boshlanadi, sahna yopilganda to'xtaydi (oldin chalinayotgan qo'shiq bo'lsa — u davom etadi). Chempion fanfarasi bir marta chalinadi, qolganlari aylanadi.</p></div>` : ''}
       <label class="filebtn" style="margin-top:8px">${ui.uploading ? '⏳ Yuklanmoqda…' : '⬆ Musiqa yuklash (MP3, M4A, WAV, OGG · 30 MB gacha)'}<input type="file" accept="audio/*" multiple data-c="music" ${ui.uploading ? 'disabled' : ''}></label>
       <p class="hint">OBS'da overlay manbasi sozlamasida <b>"Control audio via OBS"</b> ni belgilang — ovoz OBS mikserida chiqadi.</p></div>`;
+  }
+  /* ---------- commentator camera frame ---------- */
+  const CAMSZ = { s: [384, 216], m: [480, 270], l: [576, 324] };
+  function camBox(c) {
+    const [w, h] = CAMSZ[c.size] || CAMSZ.m;
+    return { w, h, x: c.pos === 'tr' || c.pos === 'br' ? 1920 - 40 - w : 40, y: c.pos === 'bl' || c.pos === 'br' ? 1080 - 60 - h : 40 };
+  }
+  function camHtml() {
+    const c = live.show.cam, b = camBox(c);
+    const opt = (k, v, l) => `<button class="${c[k] === v ? 'on' : ''}" data-a="cam" data-k="${k}" data-v="${v}">${l}</button>`;
+    return `<div class="box cam"><h3>🎥 Sharhlovchi kamerasi</h3>
+      <button class="${c.on ? 'on' : 'pri'}" data-a="cam" data-k="on" data-v="${c.on ? '' : '1'}" style="width:100%;margin-bottom:8px">${c.on ? '👁 Ekranda — yashirish' : '🎥 Kamera ramkasini chiqarish'}</button>
+      <div class="g4">${opt('pos', 'tl', '↖ Chap tepa')}${opt('pos', 'tr', '↗ O\'ng tepa')}${opt('pos', 'bl', '↙ Chap past')}${opt('pos', 'br', '↘ O\'ng past')}</div>
+      <div class="g3" style="margin:6px 0">${opt('size', 's', 'Kichik')}${opt('size', 'm', 'O\'rta')}${opt('size', 'l', 'Katta')}</div>
+      <div class="row"><input data-cam="name" placeholder="Ism (masalan ASADBEK)" value="${esc(c.name)}"><input data-cam="sub" placeholder="Pastki yozuv (SHARHLOVCHI)" value="${esc(c.sub)}"></div>
+      <p class="hint">OBS'da kamerangizni overlay <b>ostiga</b> qo'ying: <b>X ${b.x}, Y ${b.y}, ${b.w}×${b.h}</b> (1920×1080 sahnada). Ramka o'rtasi shaffof — yuz ko'rinadi.</p></div>`;
   }
   function sideHtml() {
     const se = sel && ix.p[sel], sh = live.show, now = sceneKey(sh);
@@ -217,6 +238,7 @@
     const opts = v => gridTeams().map(t => `<option value="${t.id}" ${t.id === v ? 'selected' : ''}>${esc(t.tag)} — ${esc(t.name)}</option>`).join('');
     return `<div class="box"><h3>Ekranda ko'rsatish</h3><div class="g2">${tg('ranking', 'Reyting')}${tg('lower', 'Pastki banner')}${tg('wwcd', 'Final jamoalar')}${tg('sound', sh.sound ? '🔊 Ovoz yoqilgan' : '🔇 Ovoz o\'chiq')}</div></div>
     ${musicHtml()}
+    ${camHtml()}
     <div class="box"><h3>Zona</h3><div class="row"><input type="number" data-u="zone" value="${ui.zone}" style="max-width:80px"><span>sek</span><button class="pri" data-a="zone">Boshlash</button><button data-a="zoneOff">To'xtatish</button></div>
       <p class="hint">Oxirgi ${cfg.zoneShowAt} soniyada "CIRCLE CLOSING IN" chiqadi.</p></div>
     <div class="box"><h3>O'yinchi bannerlari ${se ? '' : '(avval o\'yinchini tanlang)'}</h3>
@@ -340,6 +362,13 @@
       <h3 style="margin-top:12px">Xavfli zona</h3><div class="row"><button class="dng" data-a="resetMatch">Joriy matchni tozalash</button><button class="dng" data-a="resetHist">Shu bosqich natijalarini o'chirish</button>${Store.mode === 'supabase' ? '<button data-a="logout">Chiqish</button>' : ''}</div></div></div>`;
   }
 
+  let sideT = 0;
+  function renderSide() {
+    const a = document.activeElement;
+    if (a && a.closest && a.closest('#side') && /INPUT|SELECT/.test(a.tagName)) return;   // don't wipe a field being typed in
+    const open = $('#side details') && $('#side details').open;
+    $('#side').innerHTML = sideHtml(); if (open) $('#side details').open = true;
+  }
   function render() {
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === tab));
     $('#undo').disabled = !undo.length;
@@ -348,9 +377,10 @@
       if (!$('#grid')) m.innerHTML = `<div class="live"><div><div id="bar"><div id="atk"></div><input id="filter" placeholder="Qidirish: jamoa yoki o'yinchi…" value="${esc(filter)}"></div><div id="grid"></div></div><aside id="side"></aside></div>`;
       $('#grid').innerHTML = gridHtml();
       $('#atk').innerHTML = atkHtml(); $('#atk').classList.toggle('has', !!(sel && ix.p[sel]));
-      const a = document.activeElement, keepFocus = a && a.closest && a.closest('#side') && /INPUT|SELECT/.test(a.tagName);
-      const open = $('#side details') && $('#side details').open;
-      if (!keepFocus) { $('#side').innerHTML = sideHtml(); if (open) $('#side details').open = true; }
+      // focus is "nowhere" while it moves from one field to another (the old one's change event): wait until it has landed
+      const a = document.activeElement;
+      if (!a || a === document.body) { clearTimeout(sideT); sideT = setTimeout(() => tab === 'live' && $('#side') && renderSide(), 0); }
+      else renderSide();
     } else {
       const y = scrollY, a = document.activeElement;
       if (a && /INPUT|TEXTAREA/.test(a.tagName) && a.type !== 'checkbox' && a.type !== 'file' && m.contains(a)) return;   // don't wipe a field being typed in
@@ -382,9 +412,11 @@
     hist.matches.push(rec); saveHist();
     const no = rec.no + 1;
     undo = []; sel = null; cur = null; kb = '';
+    const mus = live.show.scene === 'champion' ? sceneMusic(null) : null;     // the fanfare ends with the champion scene
     act(() => {
       const n = U.defLive(no);
       n.map = live.map; n.show = Object.assign({}, live.show, { scene: live.show.scene === 'champion' ? null : live.show.scene, wwcd: false });
+      if (mus) n.show.music = U.clone(mus);
       live = n;
     }, true);
     tab = 'results'; $('#main').innerHTML = ''; render();
@@ -423,11 +455,28 @@
     }
   }
 
-  function setMusic(next) { const v = U.clone(next); act(() => { live.show.music = U.clone(v); }); }
+  /* a manual choice ends the scene music */
+  function setMusic(next) { const v = U.clone(next); delete v.auto; delete v.prev; act(() => { live.show.music = U.clone(v); }); }
+  /* scene music: what the music should become when the screen shows `show` (null = leave it alone) */
+  function sceneMusic(show, force) {
+    if (!force && live.show.autoMusic === false) return null;
+    const m = MU(), k = U.musicKey(show), t = k && U.track(cfg, cfg.musicMap[k]);
+    if (t) {
+      if (m.auto && m.id === t.id && m.playing) return null;            // already playing it
+      const prev = m.auto ? m.prev : { id: m.id, playing: !!m.playing };
+      return Object.assign(m, { id: t.id, playing: true, cmd: U.uid(), auto: k === 'champion' ? 'once' : 'loop', prev });
+    }
+    return m.auto ? musicBack(m) : null;
+  }
+  /* back to what was playing before the scene music started */
+  function musicBack(m) {
+    const p = m.prev || {}, r = Object.assign({}, m, { id: p.playing ? p.id : null, playing: !!p.playing, cmd: U.uid() });
+    delete r.auto; delete r.prev; return r;
+  }
   function muStep(dir) {
-    if (!cfg.music.length) return;
-    const m = MU(), i = cfg.music.findIndex(t => t.id === m.id), n = cfg.music.length;
-    const id = cfg.music[((i < 0 ? (dir > 0 ? -1 : 0) : i) + dir + n) % n].id;
+    const all = U.tracks(cfg);
+    const m = MU(), i = all.findIndex(t => t.id === m.id), n = all.length;
+    const id = all[((i < 0 ? (dir > 0 ? -1 : 0) : i) + dir + n) % n].id;
     setMusic(Object.assign(m, { id, playing: true, cmd: U.uid() }));
   }
   async function uploadMusic(files) {
@@ -471,19 +520,29 @@
       }
       if (v === 'results' || v === 'overall') o.page = 0;
       const key = sceneKey(Object.assign({}, live.show, o));
-      act(() => { if (v && sceneKey(live.show) === key) live.show.scene = null; else Object.assign(live.show, o); });
+      const closing = !v || sceneKey(live.show) === key;
+      const mus = sceneMusic(closing ? null : Object.assign({}, live.show, o));    // computed once: act() may run twice
+      act(() => { if (closing) live.show.scene = null; else Object.assign(live.show, o); if (mus) live.show.music = U.clone(mus); });
     },
     zone() { const sec = Math.max(1, +ui.zone || 30); act(() => { live.zone = { id: U.uid(), sec, at: Date.now() }; }); },
     page(d) { const p = +d.v; act(() => { live.show.page = p; }); },
     /* the new state is computed once here: act() may apply the change twice (screen + save) */
-    muToggle() { const m = MU(), id = m.id || (cfg.music[0] || {}).id; if (!id) return; setMusic(Object.assign(m, { id, playing: !m.playing, cmd: m.id ? m.cmd : U.uid() })); },
+    muToggle() { const m = MU(), id = m.id || (U.tracks(cfg)[0] || {}).id; if (!id) return; setMusic(Object.assign(m, { id, playing: !m.playing, cmd: m.id ? m.cmd : U.uid() })); },
     muPlay(d) { const m = MU(); setMusic(m.id === d.id ? Object.assign(m, { playing: !m.playing }) : Object.assign(m, { id: d.id, playing: true, cmd: U.uid() })); },
     muStop() { setMusic(Object.assign(MU(), { playing: false, id: null, cmd: U.uid() })); },
     muNext() { muStep(1); }, muPrev() { muStep(-1); },
     muMode(d) { setMusic(Object.assign(MU(), { mode: d.v })); },
+    autoMu() {
+      const on = live.show.autoMusic === false, m = MU();
+      const mus = on ? sceneMusic(live.show, true) : (m.auto ? musicBack(m) : null);
+      act(() => { live.show.autoMusic = on; if (mus) live.show.music = U.clone(mus); });
+    },
+    mmOpen() { ui.mmOpen = !ui.mmOpen; render(); },
+    cam(d) { const k = d.k, v = k === 'on' ? !!d.v : d.v; act(() => { live.show.cam = Object.assign({}, live.show.cam, { [k]: v }); }); },
     async muDel(d) {
       const t = cfg.music.find(x => x.id === d.id); if (!t || !confirm(`"${t.name}" o'chirilsinmi?`)) return;
       if (MU().id === t.id) A.muStop();
+      Object.keys(cfg.musicMap).forEach(k => { if (cfg.musicMap[k] === t.id) cfg.musicMap[k] = ''; });
       cfg.music = cfg.music.filter(x => x !== t); saveCfg(); render(); Store.deleteMedia(t.url);
     },
     zoneOff() { act(() => { live.zone = null; }); },
@@ -592,7 +651,14 @@
     if (el.id === 'filter') { filter = el.value; $('#grid').innerHTML = gridHtml(); }
     else if (d.u) ui[d.u] = el.value;
     else if (d.mu === 'vol') { const b = el.parentNode.querySelector('b'); if (b) b.textContent = el.value + '%'; }
+    else if (d.cam) { clearTimeout(camT); const k = d.cam, v = el.value; camT = setTimeout(() => saveCam(k, v), 450); }   // saved while typing: leaving the field then changes nothing
   });
+  let camT = 0;
+  function saveCam(k, raw) {
+    clearTimeout(camT);
+    const v = raw.toUpperCase().slice(0, 40); if ((live.show.cam || {})[k] === v) return;
+    act(() => { live.show.cam = Object.assign({}, live.show.cam, { [k]: v }); });
+  }
   document.addEventListener('change', async e => {
     const el = e.target, d = el.dataset;
     if (d.c === 'music') { const fs = [...el.files]; el.value = ''; if (fs.length) uploadMusic(fs); return; }
@@ -621,7 +687,9 @@
     }
     else if (d.l) { const k = d.l, v = k === 'matchNo' ? Math.max(1, +el.value || 1) : el.value.toUpperCase(); act(() => { live[k] = v; }); }
     else if (d.place) { const id = d.place, v = +el.value; act(() => { const r = live.teams[id] || (live.teams[id] = {}); if (v > 0) { r.place = v; r.m = 1; } else { delete r.place; delete r.m; } }); }
-    else if (d.mu === 'vol') setMusic(Object.assign(MU(), { vol: +el.value }));
+    else if (d.mu === 'vol') { const v = +el.value; act(() => { live.show.music = Object.assign({}, live.show.music, { vol: v }); }); }
+    else if (d.cam) saveCam(d.cam, el.value);
+    else if (d.mm) { cfg.musicMap[d.mm] = el.value; saveCfg(); render(); }
     else if (d.dmg) { const id = d.dmg, v = +el.value || 0; act(() => { P(id).dmg = v; }); }
     else if (d.g) {
       const k = d.g;
@@ -688,7 +756,12 @@
     server = U.normLive(l); live = U.normLive(U.clone(server));
     if (!cfg.teams.length) tab = 'teams';
     else Store.set('pub', U.publicConfig(cfg));               // keep the public standings page in sync
-    Store.presence(me, n => { const w = $('#who'); w.hidden = n < 2; w.textContent = '👥 ' + n + ' admin'; });
+    Store.presence(me, 'admin', n => {
+      const w = $('#who'); w.hidden = n.admin < 2; w.textContent = '👥 ' + n.admin + ' admin';
+      const o = $('#obs'); o.hidden = false; o.className = 'st ' + (n.overlay ? 'ok' : 'err');
+      o.textContent = n.overlay ? '🟢 OBS ulangan' + (n.overlay > 1 ? ' ×' + n.overlay : '') : '🔴 OBS ulanmagan';
+      o.title = n.overlay ? `Overlay hozir ${n.overlay} joyda ochiq (OBS yoki brauzer)` : 'OBS\'dagi overlay sahifasi ochiq emas yoki internetdan uzilgan';
+    });
     render();
   }
   /* ---------- tournaments page (owner: all tournaments + their admins; admin: own tournaments) ---------- */

@@ -27,6 +27,7 @@ const U = {
     c.brand = Object.assign({ pos: 'tr', size: 'm', name: true }, c.brand);
     c.teams = c.teams || []; c.sponsors = c.sponsors || [];
     c.music = Array.isArray(c.music) ? c.music : [];               // playlist: [{id, name, url}]
+    c.musicMap = Object.assign({}, U.DEF_MUSIC_MAP, c.musicMap);     // scene -> track that starts by itself
     c.chars = Array.isArray(c.chars) ? c.chars.slice(0, 4) : [];   // admin's own default characters (empty = built-in)
     U._chars = c.chars;
     c.teams.forEach(t => { t.players = t.players || []; });
@@ -40,7 +41,7 @@ const U = {
     return {
       matchNo: no || 1, map: 'ERANGEL', startedAt: null,
       players: {}, teams: {}, banners: [], log: [],
-      show: { ranking: true, lower: true, wwcd: false, sound: false, scene: null, sceneTeam: null, sceneTeam2: null, mvp: null, info: null },
+      show: { ranking: true, lower: true, wwcd: false, sound: false, scene: null, sceneTeam: null, sceneTeam2: null, mvp: null, info: null, autoMusic: true, cam: null },
       zone: null, _s: 0
     };
   },
@@ -48,6 +49,7 @@ const U = {
     const d = U.defLive(1);
     l = Object.assign(d, l || {});
     l.show = Object.assign(U.defLive(1).show, l.show);
+    l.show.cam = Object.assign({ on: false, pos: 'bl', size: 'm', name: '', sub: '' }, l.show.cam);
     l.players = l.players || {}; l.teams = l.teams || {}; l.banners = l.banners || []; l.log = l.log || [];
     l._s = l._s || 0;
     return l;
@@ -161,6 +163,19 @@ const U = {
     const k = i % U.DEF_CHARS.length;
     return { src: (U._chars && U._chars[k]) || U.DEF_CHARS[k], def: true };
   },
+  /* original tracks shipped with the site (music/*.mp3): always available, cannot be deleted */
+  BUILTIN_MUSIC: [
+    { id: 'b-battle', name: 'Jang boshlanishi (tayyor)', url: 'music/battle.mp3', builtin: true },
+    { id: 'b-lobby', name: 'Lobbi / tanaffus (tayyor)', url: 'music/lobby.mp3', builtin: true },
+    { id: 'b-countdown', name: 'Keyingi match sanog\'i (tayyor)', url: 'music/countdown.mp3', builtin: true },
+    { id: 'b-champion', name: 'Chempion fanfarasi (tayyor)', url: 'music/champion.mp3', builtin: true },
+    { id: 'b-intro', name: 'Strim intro (tayyor)', url: 'music/intro.mp3', builtin: true }
+  ],
+  DEF_MUSIC_MAP: { champion: 'b-champion', soon: 'b-lobby', break: 'b-lobby', next: 'b-countdown', results: '', overall: '', mvp: '', team: '', map: '', vs: '' },
+  tracks(c) { return c.music.concat(U.BUILTIN_MUSIC); },
+  track(c, id) { return id ? U.tracks(c).find(t => t.id === id) : null; },
+  /* which music slot a scene uses: info scenes by kind, both MVP scenes share one */
+  musicKey(sh) { return !sh || !sh.scene ? null : sh.scene === 'info' ? (sh.info || {}).kind : sh.scene === 'mvp1' ? 'mvp' : sh.scene; },
   PER_PAGE: 16,                                    // teams per page of a standings scene / picture
   pages(n) { return Math.max(1, Math.ceil(n / U.PER_PAGE)); },
   mmss(sec) {

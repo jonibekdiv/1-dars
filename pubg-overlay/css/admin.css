@@ -25,6 +25,7 @@ header { position: sticky; top: 0; z-index: 30; display: flex; align-items: cent
 #clock small:first-child { margin-left: 0; }
 .st { font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 20px; background: #090d12; white-space: nowrap; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; }
 .st.ok { color: var(--ok); } .st.error { color: #fff; background: var(--bad); } .st.local { color: var(--warn); }
+.st.err { color: #ff8a8a; }
 main { padding: 12px; max-width: 1800px; margin: 0 auto; }
 h3 { margin: 0 0 9px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--mu); }
 .box { background: var(--p); border: 1px solid var(--ln); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
@@ -203,3 +204,10 @@ body.picking #tabs, body.picking #clock, body.picking #undo, body.picking #who {
 .trk.cur span { color: var(--ok); font-weight: 600; }
 .trk button { padding: 4px 9px; }
 .music .filebtn { justify-content: center; width: 100%; }
+.trk.bi:not(.cur) span { color: var(--mu); }
+.automu { margin-top: 8px; }
+.mmap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; margin-top: 8px; padding: 8px; background: #090d12; border-radius: 8px; }
+.mmap label { font-size: 12px; }
+.mmap .hint { grid-column: 1 / -1; margin: 2px 0 0; }
+.g4 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.mmap label, .mmap select { min-width: 0; width: 100%; }

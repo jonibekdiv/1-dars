@@ -136,12 +136,30 @@ const Store = (() => {
     onStatus(f) { statusCb = f; },
     /* Re-read state periodically (safety net for the overlay, the only channel for the public page) */
     poll(ms, keys) { if (useSb) setInterval(() => (keys || ['live', 'history']).forEach(k => load(k).then(d => d && emit(k, d))), ms); },
-    /* How many admin panels are open right now */
-    presence(id, cb) {
-      if (!ch) return;
-      ch.on('presence', { event: 'sync' }, () => cb(Object.keys(ch.presenceState()).length));
-      const go = () => ch.track({ id }).catch(() => {});
-      go(); setTimeout(go, 3000);
+    /* Who has this tournament open right now: cb({admin, overlay}) — admin panels and OBS overlays */
+    presence(id, kind, cb) {
+      cb = cb || (() => {});
+      const count = list => { const n = { admin: 0, overlay: 0 }; list.forEach(k => { n[k === 'overlay' ? 'overlay' : 'admin']++; }); return n; };
+      if (useSb) {
+        if (!ch) return;
+        ch.on('presence', { event: 'sync' }, () => {
+          const st = ch.presenceState();
+          cb(count(Object.keys(st).map(k => ((st[k] || [])[0] || {}).kind)));
+        });
+        const go = () => ch.track({ id, kind }).catch(() => {});
+        go(); setTimeout(go, 3000); setTimeout(go, 10000); setInterval(go, 60000);   // also after a reconnect
+        return;
+      }
+      if (!window.BroadcastChannel) return;                 // local mode: other tabs of this browser
+      const pc = new BroadcastChannel('pgo-pr:' + room), seen = {};
+      pc.onmessage = e => { const m = e.data || {}; if (m.bye) delete seen[m.id]; else seen[m.id] = { kind: m.kind, t: Date.now() }; };
+      const tick = () => {
+        pc.postMessage({ id, kind });
+        const now = Date.now(); Object.keys(seen).forEach(k => { if (now - seen[k].t > 6000) delete seen[k]; });
+        cb(count([kind].concat(Object.keys(seen).map(k => seen[k].kind))));
+      };
+      tick(); setInterval(tick, 2000);
+      window.addEventListener('pagehide', () => pc.postMessage({ id, bye: true }));
     },
     async user() { if (!useSb) return { email: 'local' }; const { data } = await sb.auth.getSession(); return data.session ? data.session.user : null; },
     async signIn(email, password) { const { error } = await sb.auth.signInWithPassword({ email, password }); return error ? error.message : null; },

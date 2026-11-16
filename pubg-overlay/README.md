@@ -58,6 +58,16 @@ Misol: `011 A 032 K` — 1-jamoaning 1-o'yinchisi 3-jamoaning 2-o'yinchisini o'l
 | Tez orada, Keyingi match, Tanaffus | Sanoq taymeri (daqiqa) bilan tanaffus ekrani |
 | 🔊 Ovoz | Banner va sahnalarda qisqa ovoz effekti (OBS'da "Control audio via OBS" ni belgilang) |
 
+### Musiqa
+- "Jonli" sahifasidagi 🎵 bo'limi: o'z qo'shiqlaringizni yuklang yoki 5 ta tayyor (o'zimiz yozgan, mualliflik muammosi yo'q) musiqadan foydalaning: jang boshlanishi, lobbi/tanaffus, keyingi match sanog'i, chempion fanfarasi, strim intro.
+- **Sahna musiqasi**: sahna ochilganda unga bog'langan musiqa o'zi boshlanadi (Chempion → fanfara, Tez orada / Tanaffus → lobbi, Keyingi match → sanoq), sahna yopilganda to'xtaydi yoki oldin chalinayotgan qo'shiq davom etadi. "⚙ Sozlash" — qaysi sahnaga qaysi musiqa. "🎬 Sahna musiqasi" tugmasi bilan butunlay o'chirib qo'yiladi.
+
+### OBS ulanganini bilish
+Yuqori panelda **🟢 OBS ulangan** / **🔴 OBS ulanmagan** — overlay sahifasi (OBS'da yoki brauzerda) hozir ochiqmi yo'qmi.
+
+### Sharhlovchi kamerasi
+"🎥 Sharhlovchi kamerasi" bo'limi: tugma bosilganda suyuq ramka (ism va pastki yozuv bilan) chiqadi, qayta bosilsa yashirinadi. Burchak va o'lcham tanlanadi. Ramka o'rtasi shaffof: OBS'da kamerangizni overlay manbasining **ostiga**, admin panel ko'rsatgan joyga (X, Y, kenglik×balandlik) qo'ying. Ramka chap pastda bo'lsa, pastki bannerlar avtomatik tepaga suriladi.
+
 ### 16 tadan ko'p jamoa
 
 Match natijasi va umumiy reyting sahnalari 16 tadan varaqlarga bo'linadi. Jonli bo'limda **"1-varoq / 2-varoq"** tugmalari chiqadi —

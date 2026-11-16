@@ -537,3 +537,36 @@ img.def { object-fit: contain !important; object-position: 50% 100% !important; 
 .bn .pic .photo.def { width: 176px; height: 140px; margin-right: 14px; }
 .pc .ph img.def { padding-top: 10px; }
 .mv1 .ph img.def { padding-top: 16px; }
+
+/* =====================================================================
+   COMMENTATOR CAMERA: liquid frame with a see-through middle.
+   In OBS the camera source goes UNDER the overlay, at the box the admin panel shows.
+   ===================================================================== */
+#cam { width: var(--camw, 480px); height: var(--camh, 270px); z-index: 30; }
+#cam.tl { left: 40px; top: 40px; }
+#cam.tr { right: 40px; top: 40px; }
+#cam.bl { left: 40px; bottom: 60px; }
+#cam.br { right: 40px; bottom: 60px; }
+#cam.hide.tl, #cam.hide.bl { transform: translateX(-40px); }
+#cam.hide.tr, #cam.hide.br { transform: translateX(40px); }
+#cam .cf { position: absolute; inset: 0; isolation: isolate; }
+#cam .cf::before {                                   /* the glossy frame sits outside the picture, nothing covers the face */
+  content: ''; position: absolute; z-index: -1; left: -22px; right: -22px; top: -30px; bottom: -28px;
+  border-style: solid; border-width: 30px 22px 28px 22px; border-image: url('../img/panel.png') 76 44 72 44 stretch;
+  filter: drop-shadow(0 12px 20px rgba(0, 0, 0, .55));
+}
+#cam .cf::after { content: ''; position: absolute; inset: 0; border-radius: 4px; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .18), inset 0 0 26px rgba(0, 0, 0, .45); }
+#cam .rec { position: absolute; left: 12px; top: 12px; width: 14px; height: 14px; border-radius: 50%; background: #ff2a3d;
+  box-shadow: 0 0 0 3px rgba(255, 42, 61, .3), 0 0 14px #ff2a3d; animation: recb 1.6s ease-in-out infinite; }
+@keyframes recb { 50% { opacity: .35; } }
+#cam .ctag { position: absolute; left: 26px; bottom: -34px; min-width: 46%; max-width: calc(100% - 52px); height: 52px; padding: 0 22px;
+  border-radius: 12px; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 8px 16px rgba(0, 0, 0, .4); }
+#cam .ctag > .lb { border-radius: 12px; }
+#cam .ctag b { font-family: 'Alfa Slab One', serif; font-weight: 400; font-size: 24px; line-height: 1; letter-spacing: .04em; color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 2px 0 rgba(0, 0, 0, .35); }
+#cam .ctag span { font-size: 16px; font-weight: 700; letter-spacing: .2em; color: #ffd9de; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#cam:not(.hide) .ctag > .lb { animation: pourx .6s .15s cubic-bezier(.2, .8, .2, 1) both; }
+/* keep the other widgets clear of the camera */
+#stage.cam-bl #lower { bottom: calc(var(--camh) + 120px); }
+#stage.cam-tl #zone { left: calc(var(--camw) + 100px); }
+#stage.cam-tr #rank { top: calc(var(--camh) + 110px); }

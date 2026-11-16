@@ -388,7 +388,19 @@
     el.classList.toggle('on', !!html);
   }
 
-  function renderAll() { renderRank(); renderWwcd(); renderBase(); renderScene(); }
+  /* commentator camera: a liquid frame with an empty middle — the camera source sits under the overlay in OBS */
+  const CAM = { s: [384, 216], m: [480, 270], l: [576, 324] };
+  function renderCam() {
+    const el = $('cam'), c = live.show.cam || {}, sz = CAM[c.size] || CAM.m, st = $('stage');
+    st.className = st.className.replace(/\bcam-\w+/g, '').trim();
+    if (c.on) st.classList.add('cam-' + (c.pos || 'bl'));
+    st.style.setProperty('--camw', sz[0] + 'px'); st.style.setProperty('--camh', sz[1] + 'px');
+    el.className = 'w ' + (c.pos || 'bl') + (c.on ? '' : ' hide');
+    const tag = c.name || c.sub ? `<div class="ctag lqb">${drips('cam' + c.name, 4)}<b>${esc(c.name || '')}</b>${c.sub ? `<span>${esc(c.sub)}</span>` : ''}</div>` : '';
+    setHtml(el, `<div class="cf"><i class="rec"></i></div>${tag}`);
+  }
+
+  function renderAll() { renderRank(); renderWwcd(); renderBase(); renderScene(); renderCam(); }
 
   /* ---------- music (one <audio>; the admin's state decides track, pause, volume, mode) ---------- */
   const au = new Audio(); au.preload = 'auto';
@@ -405,12 +417,12 @@
   async function takeMusic() {
     const m = Object.assign({ id: null, playing: false, vol: 70, mode: 'list', cmd: null }, live.show.music);
     const vol = Math.max(0, Math.min(1, (+m.vol || 0) / 100));
-    au.loop = m.mode === 'one';
-    const t = cfg.music.find(x => x.id === (m.id === muId && muLocal ? muLocal : m.id));
+    au.loop = m.auto ? m.auto === 'loop' : m.mode === 'one';      // scene music: loops, the champion fanfare plays once
+    const t = U.track(cfg, m.id === muId && muLocal ? muLocal : m.id);
     if (!m.id || !t) { if (!au.paused) fadeTo(0, 600, () => au.pause()); muId = m.id; muLocal = null; return; }
     if (m.id !== muId || m.cmd !== muCmd) {                       // another track, or "play from the start"
       muId = m.id; muCmd = m.cmd; muLocal = null;
-      const nt = cfg.music.find(x => x.id === m.id);
+      const nt = U.track(cfg, m.id);
       if (!(await loadTrack(nt))) return;
       au.volume = 0;
     }
@@ -420,8 +432,8 @@
     if (m.playing && !au.paused) fadeTo(vol, 300);
   }
   au.addEventListener('ended', async () => {                       // playlist mode: go on with the next track
-    const m = live.show.music || {}; if (!m.playing || m.mode === 'one' || !cfg.music.length) return;
-    const curId = muLocal || m.id, i = cfg.music.findIndex(x => x.id === curId), nt = cfg.music[(i + 1) % cfg.music.length];
+    const m = live.show.music || {}; if (!m.playing || m.auto || m.mode === 'one') return;
+    const all = U.tracks(cfg), curId = muLocal || m.id, i = all.findIndex(x => x.id === curId), nt = all[(i + 1) % all.length];
     muLocal = nt.id; if (await loadTrack(nt)) au.play().catch(() => {});
   });
   window.__music = () => ({ src: au.src, paused: au.paused, volume: +au.volume.toFixed(2), loop: au.loop, time: +au.currentTime.toFixed(1) });
@@ -447,5 +459,6 @@
     applyTheme(); takeBanners(); takeZone(); takeInfo(); renderAll(); takeMusic();
     booted = true;
     Store.poll(7000);
+    Store.presence(U.uid(), 'overlay');                          // lets the admin panel show "OBS connected"
   })();
 })();
