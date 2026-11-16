@@ -10,7 +10,8 @@
   let server = U.defLive(1);        // last state known to be saved
   let tab = 'live', sel = null, cur = null, kb = '', filter = '', undo = [], lastKillTeam = null, quiet = false;
   const queue = []; let pumping = false, pumpDone = Promise.resolve();
-  const ui = { zone: 30, dist: 300, dmg: 500, c1: '', c2: '', team: '', team2: '', imin: 5, ih1: '', mapId: '', mapTeam: '', newAdmin: '', admins: null };
+  const ui = { zone: 30, dist: 300, dmg: 500, c1: '', c2: '', team: '', team2: '', imin: 5, ih1: '', mapId: '', mapTeam: '', newAdmin: '', admins: null, newRoom: '', add: {} };
+  let ME = null, ROOMS = [];
 
   /* ---------- persistence ---------- */
   let pubT = 0;
@@ -313,9 +314,9 @@
     <div class="box"><h3>Tomoshabinlar uchun jonli jadval</h3><p>Havola: <code>${esc(pub)}</code></p>
       <div class="row"><button data-a="copy" data-v="${esc(pub)}">Havolani nusxalash</button><a href="${esc(pub)}" target="_blank"><button>Ochish</button></a></div>
       <p class="hint">Telefonda ochiladi: umumiy reyting, jonli match va natijalar. Har 10 soniyada o'zi yangilanadi.</p></div></div>
-    <div class="cols">${Store.mode === 'supabase' ? `<div class="box"><h3>Adminlar</h3><p class="hint">Bir vaqtda bir nechta admin ishlashi mumkin (biri kill, biri sahnalar). Yangi admin emailini qo'shing — u shu sahifada o'sha email bilan ro'yxatdan o'tadi.</p>
-      ${(ui.admins || []).map(e => `<div class="row"><code style="flex:1">${esc(e)}</code><button class="dng" data-a="delAdmin" data-v="${esc(e)}">✕</button></div>`).join('') || '<p class="hint">Yuklanmoqda…</p>'}
-      <div class="row"><input type="email" data-u="newAdmin" placeholder="yangi@email.com" value="${esc(ui.newAdmin)}"><button class="pri" data-a="addAdmin">Qo'shish</button></div></div>` : ''}
+    <div class="cols">${Store.mode === 'supabase' ? `<div class="box"><h3>Bu turnir adminlari</h3><p class="hint">Ular faqat shu turnirni ko'radi va boshqaradi, bir vaqtda birga ishlashi mumkin. ${ME && ME.owner ? 'Yangi admin emailini qo\'shing — u admin sahifasida o\'sha email bilan ro\'yxatdan o\'tadi.' : 'Admin qo\'shish va o\'chirishni turnir egasi qiladi.'}</p>
+      ${ui.admins === null ? '<p class="hint">Yuklanmoqda…</p>' : ui.admins.map(e => `<div class="row"><code style="flex:1">${esc(e)}</code>${ME && ME.owner ? `<button class="dng" data-a="delAdmin" data-v="${esc(e)}">✕</button>` : ''}</div>`).join('') || '<p class="hint">Hali admin qo\'shilmagan — hozircha faqat egasi boshqaradi.</p>'}
+      ${ME && ME.owner ? `<div class="row"><input type="email" data-u="newAdmin" placeholder="admin@email.com" value="${esc(ui.newAdmin)}"><button class="pri" data-a="addAdmin">Qo'shish</button></div>` : ''}</div>` : ''}
     <div class="box"><h3>Zaxira nusxa</h3><p class="hint">Barcha jamoalar, rasmlar, xaritalar va natijalar bitta faylda. Turnirdan oldin va keyin saqlab qo'ying.</p>
       <div class="row"><button class="pri" data-a="backup">⬇ Zaxira faylini yuklab olish</button><label class="filebtn">⬆ Fayldan tiklash<input type="file" accept=".json,application/json" data-c="restore"></label></div>
       <h3 style="margin-top:12px">Xavfli zona</h3><div class="row"><button class="dng" data-a="resetMatch">Joriy matchni tozalash</button><button class="dng" data-a="resetHist">Shu bosqich natijalarini o'chirish</button>${Store.mode === 'supabase' ? '<button data-a="logout">Chiqish</button>' : ''}</div></div></div>`;
@@ -406,7 +407,7 @@
   };
 
   const A = {
-    tab(d) { tab = d.v; $('#main').innerHTML = ''; if (tab === 'settings' && Store.mode === 'supabase') Store.admins().then(a => { ui.admins = a; if (tab === 'settings') render(); }); render(); },
+    tab(d) { tab = d.v; $('#main').innerHTML = ''; if (tab === 'settings' && Store.mode === 'supabase') Store.roomAdmins(Store.room).then(a => { ui.admins = a; if (tab === 'settings') render(); }); render(); },
     undo: undoLast,
     sel(d) { sel = sel === d.id ? null : d.id; render(); },
     unsel() { sel = null; render(); },
@@ -492,8 +493,8 @@
     mapArm(d) { ui.mapTeam = ui.mapTeam === d.id ? '' : d.id; render(); },
     mapUnpin(d) { const m = curMap(); delete m.drops[d.id]; saveMaps(); render(); },
     /* admins, backup */
-    async addAdmin() { const e = ui.newAdmin.trim(); if (!e) return; const err = await Store.addAdmin(e); if (err) return alert(err); ui.newAdmin = ''; ui.admins = await Store.admins(); render(); },
-    async delAdmin(d) { if (!confirm(d.v + ' adminlikdan olib tashlansinmi?')) return; const err = await Store.delAdmin(d.v); if (err) return alert(err); ui.admins = await Store.admins(); render(); },
+    async addAdmin() { const e = ui.newAdmin.trim(); if (!e) return; const err = await Store.addRoomAdmin(Store.room, e); if (err) return alert(err); ui.newAdmin = ''; ui.admins = await Store.roomAdmins(Store.room); render(); },
+    async delAdmin(d) { if (!confirm(d.v + ' bu turnir adminlaridan olib tashlansinmi?')) return; const err = await Store.delRoomAdmin(Store.room, d.v); if (err) return alert(err); ui.admins = await Store.roomAdmins(Store.room); render(); },
     async backup() { await pumpDone; download(`overlay-backup-${new Date().toISOString().slice(0, 10)}.json`, new Blob([JSON.stringify({ v: 1, room: Store.room, config: cfg, live, history: hist, maps })], { type: 'application/json' })); },
     copy(d) { navigator.clipboard && navigator.clipboard.writeText(d.v); },
     async logout() { await Store.signOut(); location.reload(); },
@@ -628,8 +629,54 @@
     Store.presence(me, n => { const w = $('#who'); w.hidden = n < 2; w.textContent = '👥 ' + n + ' admin'; });
     render();
   }
-  (async () => {
+  /* ---------- tournaments page (owner: all tournaments + their admins; admin: own tournaments) ---------- */
+  const base = location.href.replace(/admin\.html.*$/, '');
+  async function picker(msg) {
+    document.body.classList.add('picking');
+    let list = [];
+    try { list = ROOMS = await Store.rooms(); } catch (e) { msg = 'Turnirlar yuklanmadi: ' + e.message; }
+    const members = ME.owner ? await Promise.all(list.map(r => Store.roomAdmins(r.room))) : [];
+    $('#main').innerHTML = `<div class="pick"><div class="phd"><h2>Turnirlar</h2><span class="hint">${esc(ME.email)} · ${ME.owner ? '<b>asosiy admin</b>' : 'turnir admini'}</span><button data-a="logout">Chiqish</button></div>
+      ${msg ? `<div class="box warn">${esc(msg)}</div>` : ''}
+      ${ME.owner ? `<div class="box"><h3>Yangi turnir</h3><div class="row"><input data-u="newRoom" placeholder="Turnir nomi, masalan: ASADBEK SCRIMS" value="${esc(ui.newRoom)}"><button class="pri" data-a="roomNew">+ Ochish</button></div>
+        <p class="hint">Har bir turnirning jamoalari, natijalari, OBS havolasi va jadval sahifasi alohida — boshqa turnirlar bilan aralashmaydi.</p></div>` : ''}
+      ${!list.length ? `<div class="box"><p>${ME.owner ? 'Hali turnir yo\'q — yuqorida yangisini oching.' : 'Sizga hali turnir biriktirilmagan. Asosiy admin sizning emailingizni (<b>' + esc(ME.email) + '</b>) turnirga qo\'shishi kerak, keyin sahifani yangilang.'}</p></div>` : ''}
+      <div class="rooms">${list.map((r, i) => `<div class="box room"><div class="rhd"><b>${esc(r.name)}</b><code>${esc(r.room)}</code></div>
+        <div class="row"><a class="btn pri" href="admin.html?room=${encodeURIComponent(r.room)}">Boshqarish →</a>
+          <button data-a="copy" data-v="${esc(base + 'overlay.html?room=' + encodeURIComponent(r.room))}">OBS havolasi</button>
+          <button data-a="copy" data-v="${esc(base + 'table.html?room=' + encodeURIComponent(r.room))}">Jadval havolasi</button></div>
+        ${ME.owner ? `<h3>Adminlar</h3>${members[i].map(e => `<div class="row"><code style="flex:1">${esc(e)}</code><button class="dng" data-a="roomDelAdmin" data-r="${esc(r.room)}" data-v="${esc(e)}">✕</button></div>`).join('') || '<p class="hint">Admin yo\'q — faqat siz boshqarasiz.</p>'}
+          <div class="row"><input type="email" data-ra="${esc(r.room)}" placeholder="admin@email.com" value="${esc(ui.add[r.room] || '')}"><button data-a="roomAddAdmin" data-r="${esc(r.room)}">+ Admin</button></div>
+          <div class="row"><button data-a="roomRename" data-r="${esc(r.room)}" data-v="${esc(r.name)}">Nomini o'zgartirish</button><button class="dng" data-a="roomDel" data-r="${esc(r.room)}" data-v="${esc(r.name)}">Turnirni o'chirish</button></div>` : ''}</div>`).join('')}</div></div>`;
+  }
+  Object.assign(A, {
+    async roomNew() { const n = ui.newRoom.trim(); if (!n) return; const r = await Store.createRoom(n); if (r.error) return alert(r.error); ui.newRoom = ''; picker(); },
+    async roomRename(d) { const n = prompt('Yangi nom', d.v); if (!n) return; const err = await Store.renameRoom(d.r, n); if (err) return alert(err); picker(); },
+    async roomDel(d) {
+      if (prompt(`"${d.v}" turniri va uning BARCHA ma'lumotlari (jamoalar, natijalar, xaritalar) o'chiriladi.\nTasdiqlash uchun turnir nomini yozing:`) !== d.v) return;
+      const err = await Store.deleteRoom(d.r); if (err) return alert(err); picker();
+    },
+    async roomAddAdmin(d) { const e = (ui.add[d.r] || '').trim(); if (!e) return; const err = await Store.addRoomAdmin(d.r, e); if (err) return alert(err); ui.add[d.r] = ''; picker(); },
+    async roomDelAdmin(d) { if (!confirm(d.v + ' bu turnirdan olib tashlansinmi?')) return; const err = await Store.delRoomAdmin(d.r, d.v); if (err) return alert(err); picker(); }
+  });
+  document.addEventListener('input', e => { if (e.target.dataset.ra) ui.add[e.target.dataset.ra] = e.target.value; });
+
+  /* after signing in: pick a tournament, or open the one in the address */
+  async function enter() {
+    ME = await Store.me();
+    if (!ME) return location.reload();
+    if (Store.mode !== 'supabase') return start();
+    let list = [];
+    try { list = ROOMS = await Store.rooms(); } catch (e) { return picker('Turnirlar yuklanmadi: ' + e.message); }
+    if (!Store.roomParam) return picker();
+    const r = list.find(x => x.room === Store.roomParam);
+    if (!r) return picker('Bu turnirga ruxsatingiz yo\'q yoki u o\'chirilgan: ' + Store.roomParam);
+    $('#roomsBtn').hidden = false; $('#roomName').textContent = r.name; document.title = r.name + ' — Admin';
     await Store.init();
+    start();
+  }
+  (async () => {
+    if (Store.mode === 'supabase' && Store.roomParam) await Store.init(); else if (Store.mode === 'supabase') Store.connect(); else await Store.init();
     if (!(await Store.user())) {
       $('#login').hidden = false;
       $('#signUp').addEventListener('click', async () => {
@@ -637,15 +684,15 @@
         if (!f.reportValidity()) return;
         const r = await Store.signUp(f.email.value, f.password.value);
         if (r.error) { $('#loginErr').textContent = r.error; return; }
-        if (r.needConfirm) { $('#loginErr').textContent = 'Emailingizga tasdiqlash xati yuborildi. Tasdiqlab, keyin "Kirish" ni bosing.'; return; }
-        $('#login').hidden = true; start();
+        if (r.needConfirm) { $('#loginErr').textContent = 'Bu email hali hech qaysi turnirga qo\'shilmagan. Asosiy admin sizni qo\'shgach, qayta ro\'yxatdan o\'ting yoki "Kirish" ni bosing.'; return; }
+        $('#login').hidden = true; enter();
       });
       $('#loginForm').addEventListener('submit', async e => {
         e.preventDefault();
         const f = e.target, err = await Store.signIn(f.email.value, f.password.value);
-        if (err) { $('#loginErr').textContent = err; return; }
-        $('#login').hidden = true; start();
+        if (err) { $('#loginErr').textContent = err === 'Email not confirmed' ? 'Bu email hali tasdiqlanmagan yoki turnirga qo\'shilmagan.' : err; return; }
+        $('#login').hidden = true; enter();
       });
-    } else start();
+    } else enter();
   })();
 })();

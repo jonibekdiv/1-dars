@@ -4,7 +4,8 @@
 const Store = (() => {
   const C = window.OVERLAY_CONFIG || {};
   const q = new URLSearchParams(location.search);
-  const room = q.get('room') || C.room || 'main';
+  const roomParam = (q.get('room') || '').toLowerCase();
+  const room = roomParam || C.room || 'main';
   const useSb = !!(C.supabaseUrl && C.supabaseKey && window.supabase);
   const realtime = !window.OVERLAY_NO_REALTIME;      // the public page only polls, to keep realtime slots free
   const TABLE = 'overlay_state', KEYS = ['config', 'live', 'history', 'maps'];
@@ -94,7 +95,12 @@ const Store = (() => {
     })();
   }
 
+  /* Supabase client without the realtime subscription (enough for signing in and the tournament list) */
+  function connect() { if (useSb && !sb) sb = window.supabase.createClient(C.supabaseUrl, C.supabaseKey); }
+  let inited = false;
   async function init() {
+    if (inited) return;
+    inited = true;
     if (!useSb) {
       if (window.BroadcastChannel) {
         bc = new BroadcastChannel('pgo:' + room);
@@ -108,7 +114,7 @@ const Store = (() => {
       setStatus('local');
       return;
     }
-    sb = window.supabase.createClient(C.supabaseUrl, C.supabaseKey);
+    connect();
     if (!realtime) { setStatus('ok'); return; }
     ch = sb.channel('room-' + room)
       .on('postgres_changes', { event: '*', schema: 'public', table: TABLE, filter: `room=eq.${room}` }, p => {
@@ -125,7 +131,7 @@ const Store = (() => {
   }
 
   return {
-    room, mode: useSb ? 'supabase' : 'local', init, load, set, cas,
+    room, roomParam, mode: useSb ? 'supabase' : 'local', connect, init, load, set, cas,
     on(key, f) { (listeners[key] = listeners[key] || []).push(f); },
     onStatus(f) { statusCb = f; },
     /* Re-read state periodically (safety net for the overlay, the only channel for the public page) */
@@ -148,9 +154,45 @@ const Store = (() => {
       return err ? { needConfirm: true } : {};
     },
     async signOut() { if (useSb) await sb.auth.signOut(); },
-    /* Admin list (who may write) */
-    async admins() { if (!useSb) return []; const { data } = await sb.from('overlay_admins').select('email').order('email'); return (data || []).map(r => r.email); },
-    async addAdmin(email) { const { error } = await sb.from('overlay_admins').insert({ email: email.toLowerCase() }); return error ? error.message : null; },
-    async delAdmin(email) { const { error } = await sb.from('overlay_admins').delete().eq('email', email); return error ? error.message : null; }
+    /* ---------- tournaments and their admins ---------- */
+    /* {email, owner}: the owner manages every tournament and its admins */
+    async me() {
+      if (!useSb) return { email: 'local', owner: true };
+      const u = await this.user(); if (!u) return null;
+      const { data } = await sb.from('overlay_admins').select('role').eq('email', u.email.toLowerCase()).maybeSingle();
+      const { data: d2 } = data ? { data } : await sb.from('overlay_admins').select('role').ilike('email', u.email).maybeSingle();
+      return { email: u.email.toLowerCase(), owner: !!(d2 && d2.role === 'owner') };
+    },
+    /* tournaments this account may run (all of them for the owner) */
+    async rooms() {
+      if (!useSb) return [{ room, name: room.toUpperCase() }];
+      const { data, error } = await sb.from('overlay_rooms').select('room,name,created_at').order('created_at');
+      if (error) throw error;
+      return data || [];
+    },
+    async createRoom(name) {
+      const base = name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'turnir';
+      const id = base + '-' + Math.random().toString(36).slice(2, 6);
+      const { error } = await sb.from('overlay_rooms').insert({ room: id, name: name.trim().toUpperCase() });
+      return error ? { error: error.message } : { room: id };
+    },
+    async renameRoom(r, name) { const { error } = await sb.from('overlay_rooms').update({ name: name.trim().toUpperCase() }).eq('room', r); return error ? error.message : null; },
+    /* deletes the tournament with all its data (teams, results, maps) */
+    async deleteRoom(r) {
+      const a = await sb.from('overlay_state').delete().eq('room', r); if (a.error) return a.error.message;
+      const b = await sb.from('overlay_rooms').delete().eq('room', r); return b.error ? b.error.message : null;
+    },
+    async roomAdmins(r) {
+      if (!useSb) return [];
+      const { data } = await sb.from('overlay_room_admins').select('email').eq('room', r).order('added_at');
+      return (data || []).map(x => x.email);
+    },
+    async addRoomAdmin(r, email) {
+      const e = email.trim().toLowerCase();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) return 'Email noto\'g\'ri';
+      const { error } = await sb.from('overlay_room_admins').insert({ room: r, email: e });
+      return error ? (error.code === '23505' ? 'Bu admin allaqachon qo\'shilgan' : error.message) : null;
+    },
+    async delRoomAdmin(r, email) { const { error } = await sb.from('overlay_room_admins').delete().eq('room', r).eq('email', email); return error ? error.message : null; }
   };
 })();

@@ -157,3 +157,22 @@ details.box > summary { padding: 0; }
 #atk .kbd { flex: 0 1 auto; margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 #atk.has > b { flex: 0 1 auto; }
 @media (max-width: 900px) { #atk { height: 50px; } }
+
+/* ---------- tournaments page ---------- */
+body.picking #tabs, body.picking #clock, body.picking #undo, body.picking #who { display: none; }
+.pick { max-width: 1100px; margin: 0 auto; }
+.phd { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 6px 0 14px; }
+.phd h2 { margin: 0; font-size: 26px; }
+.phd .hint { flex: 1; margin: 0; }
+.rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 12px; }
+.room { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.room h3 { margin: 6px 0 0; }
+.rhd { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.rhd b { font-size: 20px; }
+.rhd code { font-size: 11px; color: var(--mu); }
+.btn { display: inline-flex; align-items: center; border-radius: 8px; padding: 8px 12px; border: 1px solid var(--ln); background: var(--p2); color: var(--tx); font-weight: 600; }
+.btn.pri { background: var(--acc); border-color: var(--acc); color: #fff; }
+.box.warn { border-color: var(--warn); color: var(--warn); }
+.roombtn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; background: var(--p2); border: 1px solid var(--ln); color: var(--tx); font-size: 13px; max-width: 32vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.roombtn[hidden] { display: none; }
+.roombtn:hover { border-color: var(--acc); }
