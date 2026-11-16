@@ -423,3 +423,106 @@ img { display: block; object-fit: contain; }
 #base .lg, #base .lg img { width: auto; }
 #base .lg { min-width: 84px; padding: 0 12px; }
 #base .lg img { height: auto; max-height: 66px; max-width: 170px; }
+
+/* =====================================================================
+   LIQUID BANDS: glossy body + hanging drips melted together by the "goo" filter
+   ===================================================================== */
+.lqb, .rk-lead { position: relative; isolation: isolate; overflow: visible !important; background: none !important; }
+.lb { position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: -1; filter: url(#goo); pointer-events: none; border-radius: inherit; }
+.lb::before { content: ''; position: absolute; left: 0; right: 0; top: 0; bottom: 0; border-radius: inherit;
+  background: linear-gradient(180deg, var(--acc-l) 0%, var(--acc) 46%, var(--acc-d) 100%); }
+.lb i { position: absolute; top: calc(100% - 9px); width: var(--w); height: var(--h); margin-left: calc(var(--w) / -2);
+  background: var(--acc-d); border-radius: 40% 40% 50% 50% / 20% 20% 80% 80%; transform-origin: 50% 0;
+  animation: drip var(--d) ease-in-out var(--o) infinite; }
+.lb i::after { content: ''; position: absolute; left: 50%; top: calc(100% - 6px); width: calc(var(--w) * .72); height: calc(var(--w) * .82);
+  margin-left: calc(var(--w) * -.36); border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%; background: var(--acc-d);
+  animation: fall var(--d) cubic-bezier(.55, 0, .9, .5) var(--o) infinite; }
+@keyframes drip { 0%, 100% { transform: scaleY(.65); } 42% { transform: scaleY(1.18); } 52% { transform: scaleY(.8); } }
+@keyframes fall { 0%, 40% { transform: translateY(-8px) scale(.5); opacity: 0; } 46% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(70px) scale(.75); opacity: 0; } }
+/* gloss on top of the band (below the text) */
+.lqb::after, .rk-lead::after { content: ''; position: absolute; z-index: -1; left: 2.5%; right: 2.5%; top: 3px; height: 44%; border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .5), rgba(255, 255, 255, .06)); pointer-events: none; }
+/* a slow highlight that runs across the liquid */
+.lb::after { content: ''; position: absolute; top: 0; bottom: 0; width: 30%; left: -40%; border-radius: inherit;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .28), transparent); animation: sheen 6s ease-in-out infinite; }
+@keyframes sheen { 0%, 62% { left: -40%; } 100% { left: 110%; } }
+
+/* --- in-game ranking: the leader sits in liquid --- */
+.rk-lead { border: 0; border-radius: 14px; box-shadow: none; margin-bottom: 18px; }
+.rk-lead > .lb { border-radius: 14px; }
+.rk-lead .bdg { z-index: 2; border-radius: 14px 0 10px 0; }
+.rk-lead .tg, .rk-lead .el b { text-shadow: 0 2px 8px rgba(0, 0, 0, .45); }
+/* liquid drops as player-status pips */
+.pips i { border-radius: 3px; }
+.pips i.a { background: linear-gradient(180deg, #8dffb9, var(--ok) 45%, #12994a); box-shadow: 0 0 6px rgba(55, 214, 122, .45); }
+.pips i.k { background: linear-gradient(180deg, #ffe08a, #ffb020 50%, #b86e00); }
+.rk-lead .pips i { width: 10px; height: 18px; border-radius: 4px; background: rgba(0, 0, 0, .35); box-shadow: none; }
+.rk-lead .pips i.a { background: linear-gradient(180deg, #fff, #ffd7dc); }
+.rk-lead .pips i.k { background: linear-gradient(180deg, #ffe08a, #ffb020); }
+.rk-row.flash { animation: splash 1.1s ease; }
+@keyframes splash { 0% { background: linear-gradient(90deg, var(--acc-l), var(--acc)); } 35% { background: linear-gradient(90deg, var(--acc), var(--acc-d)); } 100% { background: transparent; } }
+
+/* --- WWCD chance: the bar fills with liquid --- */
+.wc .bot { overflow: visible; }
+.wc .bot i.fill { border-radius: 8px; overflow: hidden; background: linear-gradient(180deg, var(--acc-l), var(--acc) 50%, var(--acc-d)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45); }
+.wc .bot i.fill::after { content: ''; position: absolute; right: -10px; top: -30%; width: 20px; height: 160%; border-radius: 50%;
+  background: radial-gradient(circle at 30% 50%, rgba(255, 255, 255, .35), transparent 60%); animation: slosh 2.4s ease-in-out infinite; }
+@keyframes slosh { 0%, 100% { transform: translateY(-2px) scaleX(1); } 50% { transform: translateY(2px) scaleX(.8); } }
+
+/* --- zone: liquid gauge --- */
+#zone .c { background: transparent !important; box-shadow: none; width: 108px; }
+#zone svg { position: absolute; width: 96px; height: 96px; transform: none; overflow: visible; }
+#zone .ring { fill: none; stroke: rgba(255, 255, 255, .85); stroke-width: 3.5; filter: drop-shadow(0 0 6px rgba(0, 0, 0, .6)); }
+#zone .glass { fill: rgba(0, 0, 0, .55); }
+#zone .lvl { transition: transform 1s linear; }
+#zone .w1 { fill: url(#zliq); animation: wave 1.8s linear infinite; }
+#zone .w2 { fill: var(--acc-d); opacity: .7; animation: wave 2.6s linear infinite reverse; transform: translateY(-3px); }
+@keyframes wave { from { translate: 0 0; } to { translate: -45px 0; } }
+#zone .shine { fill: rgba(255, 255, 255, .22); }
+#zone .c b { font-size: 44px; text-shadow: 0 2px 8px rgba(0, 0, 0, .7); color: #fff; }
+#zone.low .ring { stroke: #ffd24a; animation: pulse .5s ease-in-out infinite alternate; }
+@keyframes pulse { to { stroke-width: 6; } }
+
+/* --- team eliminated: ELIMINATED written on liquid --- */
+.te .mid { margin: 10px 6px; border-radius: 14px; }
+.te .mid > .lb { border-radius: 14px; }
+.te .mid span { color: #ffe1e5; }
+.te .mid span i { border-left-color: #fff; }
+#telim:not(.hide) .te .mid > .lb { animation: pour .55s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes pour { from { clip-path: inset(0 50% -200px 50%); } to { clip-path: inset(0 0 -200px 0); } }
+
+/* --- lower third + pop-up banner --- */
+#base .lg.lqb { margin: 6px 0 6px 6px; border-radius: 12px; box-shadow: none; }
+#base .lg > .lb { border-radius: 12px; }
+#base .lg img { position: relative; }
+.bn .nm.lqb { border-radius: 0 0 14px 14px; height: 58px; box-shadow: none; }
+.bn .nm > .lb { border-radius: 0 0 14px 14px; }
+#pop.on .bn .nm > .lb { animation: pourx .6s .1s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes pourx { from { clip-path: inset(0 100% -200px 0); } to { clip-path: inset(0 0 -200px 0); } }
+.bn .nm .nn, .bn .nm .tt { text-shadow: 0 2px 8px rgba(0, 0, 0, .45); }
+
+/* --- scenes --- */
+.pc .nm.lqb { border-radius: 0; padding: 10px 8px; overflow: visible; margin-bottom: 14px; }
+.pc .nm > .lb { border-radius: 0; }
+.pc dl { position: relative; z-index: 0; }
+.tr.top1.lqb { border-radius: 8px; margin-bottom: 18px; }
+.tr.top1 > .lb { border-radius: 8px; }
+.tr.top1 > span { position: relative; text-shadow: 0 2px 6px rgba(0, 0, 0, .45); }
+.tr.top1 .rk, .tr.top1 .tot { background: transparent !important; }
+
+/* drips must never pick up other widgets' "span i" styles (e.g. the ELIMINATED chevrons) */
+.lb i { border: 0 !important; width: var(--w) !important; height: var(--h) !important; opacity: 1 !important;
+  background: linear-gradient(90deg, var(--acc-d), var(--acc) 40%, var(--acc-dd)) !important; }
+.lb i::after { background: radial-gradient(circle at 35% 35%, var(--acc-l), var(--acc) 45%, var(--acc-dd)) !important; }
+.te .mid > span:not(.lb) i { border: 7px solid transparent; border-left: 12px solid #fff; border-right: 0; width: 0; height: 0; }
+.te .mid > b, .te .mid > span:not(.lb) { position: relative; }
+/* the ELIMINATED gloss stays above the arrows' row only */
+.te .mid.lqb::after { height: 38%; }
+.lb { display: block !important; height: auto !important; gap: 0 !important; }
+
+/* the table row is a grid: its liquid layer must sit outside the column flow */
+.tr > .lb { position: absolute !important; grid-column: 1 / -1; }
+.tr.top1.lqb { margin-bottom: 14px; }
+/* MVP tiles: room between the framed tiles */
+.mv1 .sts { gap: 46px; }
+.mv1 .sts > div { padding: 24px 6px; }

@@ -26,6 +26,19 @@
   const img = (src, cls) => src ? `<img class="${cls || ''}" src="${esc(src)}" alt="">` : '';
   const flag = (t, cls) => { const u = U.flagUrl(t.flag); return u ? `<img class="${cls || 'fl'}" src="${u}" alt="" onerror="this.style.visibility='hidden'">` : ''; };
   const logo = (t, cls) => t.logo ? img(t.logo, cls || 'lg') : `<div class="nolg ${cls || ''}">${esc((t.tag || '?').slice(0, 4))}</div>`;
+  /* Liquid band behind a bar: glossy body + drips that stretch and let a drop fall now and then.
+     Positions come from the key, so the same bar always drips in the same places (no flicker on re-render). */
+  function drips(key, n) {
+    let h = 2166136261;
+    for (const c of String(key)) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+    const rnd = () => (h = (Math.imul(h, 1103515245) + 12345) >>> 0) / 4294967296;
+    let s = '';
+    for (let k = 0; k < n; k++) {
+      const x = 7 + (86 / n) * (k + .15 + rnd() * .7);
+      s += `<i style="left:${x.toFixed(1)}%;--w:${(13 + rnd() * 10).toFixed(0)}px;--h:${(18 + rnd() * 26).toFixed(0)}px;--d:${(2.4 + rnd() * 2.6).toFixed(1)}s;--o:${(-rnd() * 4).toFixed(1)}s"></i>`;
+    }
+    return `<span class="lb">${s}</span>`;
+  }
   const pips = pl => `<div class="pips">${pl.map(p => `<i class="${p.st === 'd' ? '' : p.st === 'k' ? 'k' : 'a'}"></i>`).join('')}</div>`;
 
   /* Accent colour and the shades derived from it (computed here so old OBS browsers need no modern CSS) */
@@ -81,10 +94,10 @@
     const list = U.liveRanking(cfg, live);
     el.classList.toggle('hide', !live.show.ranking || !list.length || !!live.show.scene);
     if (!list.length) return;
-    if (!el.firstChild) el.innerHTML = '<div class="rk-lead"></div><div class="rk-head"><span>#</span><span>TEAM</span><span>ALIVE</span><span>ELIMS</span></div><div class="rk-rows"></div><div class="rk-foot"><span><i class="a"></i>ALIVE</span><span><i class="k"></i>KNOCKED</span><span><i></i>ELIMINATED</span></div>';
+    if (!el.firstChild) el.innerHTML = '<div class="rk-lead lqb"></div><div class="rk-head"><span>#</span><span>TEAM</span><span>ALIVE</span><span>ELIMS</span></div><div class="rk-rows"></div><div class="rk-foot"><span><i class="a"></i>ALIVE</span><span><i class="k"></i>KNOCKED</span><span><i></i>ELIMINATED</span></div>';
     const lead = list[0], rest = list.slice(1), MP = U.matchPoint(cfg, H());
     setHtml(el.querySelector('.rk-lead'),
-      `<div class="bdg">#1${MP.mp[lead.t.id] ? ' · MP' : ''}</div>${logo(lead.t)}<div class="inf"><div class="tg">${flag(lead.t)}<span>${esc(lead.t.tag)}</span></div>${pips(lead.pl)}</div><div class="el"><b>${lead.elims}</b><small>ELIMS</small></div>`);
+      drips('lead' + lead.t.id, 4) + `<div class="bdg">#1${MP.mp[lead.t.id] ? ' · MP' : ''}</div>${logo(lead.t)}<div class="inf"><div class="tg">${flag(lead.t)}<span>${esc(lead.t.tag)}</span></div>${pips(lead.pl)}</div><div class="el"><b>${lead.elims}</b><small>ELIMS</small></div>`);
     const rh = Math.max(20, Math.min(34, Math.floor(690 / Math.max(1, rest.length))));
     el.style.setProperty('--rh', rh + 'px');
     const box = el.querySelector('.rk-rows');
@@ -114,7 +127,7 @@
     el.classList.toggle('hide', !live.show.wwcd || !list.length || !!live.show.scene);
     setHtml(el, list.map(r => {
       const pc = w(r) / sum * 100;
-      return `<div class="wc"><div class="top">${logo(r.t)}<div class="mid"><b>${esc(r.t.tag)}</b>${pips(r.pl)}</div>${flag(r.t)}</div><div class="bot"><i style="width:${pc.toFixed(1)}%"></i><span>WWCD</span><b>${pc.toFixed(1)}%</b></div></div>`;
+      return `<div class="wc"><div class="top">${logo(r.t)}<div class="mid"><b>${esc(r.t.tag)}</b>${pips(r.pl)}</div>${flag(r.t)}</div><div class="bot"><i class="fill" style="width:${pc.toFixed(1)}%"></i><span>WWCD</span><b>${pc.toFixed(1)}%</b></div></div>`;
     }).join(''));
   }
 
@@ -123,7 +136,7 @@
   function renderBase() {
     $('lower').classList.toggle('hide', !live.show.lower || !!live.show.scene);
     const sub = [cfg.stage, 'MATCH ' + live.matchNo, live.map].filter(Boolean).join(' · ');
-    const changed = setHtml($('base'), `<div class="lg">${cfg.logo ? img(cfg.logo) : ''}</div><div class="l"><b>${esc(cfg.title)}</b><span>${esc(sub)}</span></div>` +
+    const changed = setHtml($('base'), `<div class="lg lqb">${drips('base', 3)}${cfg.logo ? img(cfg.logo) : ''}</div><div class="l"><b>${esc(cfg.title)}</b><span>${esc(sub)}</span></div>` +
       (cfg.sponsors.length ? `<div class="sp">${cfg.sponsors.map(s => `<img src="${esc(s)}">`).join('')}</div>` : ''));
     $('base').classList.toggle('nologo', !cfg.logo);
     if (changed) showSponsor();
@@ -151,7 +164,7 @@
     }[b.type];
     if (!L) return '';
     return `<div class="bn"><div class="card"><div class="pic">${pic}</div><div class="tx ${L[2] ? 's' : ''}"><b>${L[0]}</b><b>${L[1]}</b></div></div>` +
-      `<div class="nm">${pe && t.logo ? img(t.logo, 'tl') : ''}<span class="tt">${esc(pe ? t.tag : '')}</span><span class="nn">${esc(name)}</span>${flag(t)}</div></div>`;
+      `<div class="nm lqb">${drips('nm' + name, 5)}${pe && t.logo ? img(t.logo, 'tl') : ''}<span class="tt">${esc(pe ? t.tag : '')}</span><span class="nn">${esc(name)}</span>${flag(t)}</div></div>`;
   }
   function nextPop() {
     if (popBusy || !popQ.length) return;
@@ -169,7 +182,7 @@
     if (!v || Date.now() - b._in > 9000) return nextElim();
     elimBusy = true;
     const el = $('telim');
-    el.innerHTML = `<div class="te ${a ? '' : 'solo'}">${a ? `<div class="sd">${logo(a)}<span>${esc(a.tag)}</span></div>` : ''}<div class="mid"><b>ELIMINATED</b><span>${a ? '<i></i><i></i><i></i><i></i>' : (b.place ? 'FINISHED #' + esc(b.place) : '')}</span></div><div class="sd v">${logo(v)}<span>${esc(v.tag)}</span></div></div>`;
+    el.innerHTML = `<div class="te ${a ? '' : 'solo'}">${a ? `<div class="sd">${logo(a)}<span>${esc(a.tag)}</span></div>` : ''}<div class="mid lqb">${drips('te' + v.id, 5)}<b>ELIMINATED</b><span>${a ? '<i></i><i></i><i></i><i></i>' : (b.place ? 'FINISHED #' + esc(b.place) : '')}</span></div><div class="sd v">${logo(v)}<span>${esc(v.tag)}</span></div></div>`;
     el.classList.remove('hide'); sfx('elim');
     setTimeout(() => { el.classList.add('hide'); setTimeout(() => { elimBusy = false; nextElim(); }, 600); }, elimQ.length ? 3200 : 5000);
   }
@@ -200,16 +213,30 @@
     // between the admin PC and the OBS PC does not matter. Only after a reload do we trust timestamps.
     zoneEnd = booted ? Date.now() + z.sec * 1000 : z.at + z.sec * 1000;
   }
+  /* Zone gauge: liquid inside the circle drains as the time runs out (built once, then only updated) */
   let lastTick = -1;
+  const WAVE = 'M0 6 Q11.25 0 22.5 6 T45 6 T67.5 6 T90 6 T112.5 6 T135 6 T157.5 6 T180 6 V120 H0 Z';
   setInterval(() => {
     const el = $('zone'), left = Math.ceil((zoneEnd - Date.now()) / 1000);
     const showAt = Math.min(cfg.zoneShowAt || 10, zoneLen || 10);
     const on = zoneEnd && left > 0 && left <= showAt && !live.show.scene;
     el.classList.toggle('hide', !on);
-    if (on && left !== lastTick) {
+    if (!on) { lastTick = -1; return; }
+    if (!el.__built) {
+      el.__built = true;
+      el.innerHTML = `<div class="t"><span>CIRCLE</span><span>CLOSING IN</span></div><div class="c"><svg viewBox="0 0 90 90">
+        <defs><clipPath id="zclip"><circle cx="45" cy="45" r="35"/></clipPath>
+          <linearGradient id="zliq" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--acc-l)"/><stop offset=".5" style="stop-color:var(--acc)"/><stop offset="1" style="stop-color:var(--acc-dd)"/></linearGradient></defs>
+        <circle cx="45" cy="45" r="40" class="ring"/>
+        <g clip-path="url(#zclip)"><rect width="90" height="90" class="glass"/>
+          <g class="lvl"><path class="w2" d="${WAVE}"/><path class="w1" d="${WAVE}"/></g></g>
+        <ellipse cx="36" cy="24" rx="18" ry="8" class="shine"/></svg><b></b></div>`;
+    }
+    if (left !== lastTick) {
       lastTick = left; if (left <= 3) sfx('tick');
-      const C = 2 * Math.PI * 38, off = C * (1 - left / showAt);
-      el.innerHTML = `<div class="t"><span>CIRCLE</span><span>CLOSING IN</span></div><div class="c"><svg viewBox="0 0 90 90"><circle cx="45" cy="45" r="38" class="bg"/><circle cx="45" cy="45" r="38" class="fg" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/></svg><b class="tick">${left}</b></div>`;
+      el.querySelector('.lvl').style.transform = `translateY(${(8 + 74 * (1 - left / showAt)).toFixed(1)}px)`;
+      const b = el.querySelector('.c b'); b.textContent = left; b.classList.remove('tick'); void b.offsetWidth; b.classList.add('tick');
+      el.classList.toggle('low', left <= 3);
     }
   }, 200);
 
@@ -250,7 +277,7 @@
     const mark = r => !mp ? '' : mp.champ === r.t.id ? 'champ' : mp.mp[r.t.id] ? 'mp' : '';
     const mv = r => !moves ? '' : moves[r.t.id] > 0 ? '<i class="up"></i>' : moves[r.t.id] < 0 ? '<i class="dn"></i>' : '<i class="eq"></i>';
     const hd = `<div class="tr h"><span></span><span>RANK</span><span></span><span></span><span class="nm">TEAMS</span>${cols.map(c => `<span>${c[0]}</span>`).join('')}</div>`;
-    const row = (r, i) => `<div class="tr ${i === 0 ? 'top1' : ''} ${mark(r)}" style="animation-delay:${i * 35}ms"><span class="mv">${mv(r)}</span><span class="rk">#${i + 1}</span>${flag(r.t) || '<span></span>'}${r.t.logo ? img(r.t.logo, 'lg') : '<span></span>'}<span class="nm">${esc(r.t.tag || r.t.name)}</span>${cols.map(c => `<span class="${c[2] || ''}">${c[1](r)}</span>`).join('')}</div>`;
+    const row = (r, i) => `<div class="tr ${i === 0 ? 'top1 lqb' : ''} ${mark(r)}" style="animation-delay:${i * 35}ms">${i === 0 ? drips('row' + r.t.id, 6) : ''}<span class="mv">${mv(r)}</span><span class="rk">#${i + 1}</span>${flag(r.t) || '<span></span>'}${r.t.logo ? img(r.t.logo, 'lg') : '<span></span>'}<span class="nm">${esc(r.t.tag || r.t.name)}</span>${cols.map(c => `<span class="${c[2] || ''}">${c[1](r)}</span>`).join('')}</div>`;
     const colHtml = part => `<div>${hd}${note}${part.map(x => row(x.r, x.i)).join('')}</div>`;
     const items = list.map((r, i) => ({ r, i }));
     return `<div class="tb lq ${two ? 'two' : ''}" style="--th:${th}px">${colHtml(items.slice(0, per))}${two ? colHtml(items.slice(per)) : ''}</div>`;
@@ -262,7 +289,7 @@
   function playerCard(pid, i, withTeam) {
     const e = ix.p[pid]; if (!e) return '';
     const tot = U.playerTotals(cfg, H(), live)[pid] || { k: 0, kn: 0, dmg: 0, surv: 0, n: 0 };
-    return `<div class="pc lq" style="animation-delay:${i * 90}ms"><div class="ph">${e.p.photo ? img(e.p.photo) : logo(e.t, 'wm')}${withTeam ? `<div class="rkn">#${i + 1}</div>` : ''}</div><div class="nm">${esc(e.p.name)}</div>` +
+    return `<div class="pc lq" style="animation-delay:${i * 90}ms"><div class="ph">${e.p.photo ? img(e.p.photo) : logo(e.t, 'wm')}${withTeam ? `<div class="rkn">#${i + 1}</div>` : ''}</div><div class="nm lqb">${drips('pc' + pid, 4)}${esc(e.p.name)}</div>` +
       (withTeam ? `<div class="tm">${e.t.logo ? img(e.t.logo) : ''}${esc(e.t.tag)}</div>` : '') +
       `<dl><div>ELIMS<dd>${tot.k}</dd></div><div>DAMAGE<dd>${Math.round(tot.dmg)}</dd></div><div>KNOCKS<dd>${tot.kn}</dd></div><div>AVG. SURV.<dd>${tot.n ? U.mmss(tot.surv / tot.n) : '--:--'}</dd></div></dl></div>`;
   }
