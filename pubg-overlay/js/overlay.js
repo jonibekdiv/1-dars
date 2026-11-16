@@ -151,7 +151,7 @@
     const pe = b.pid && ix.p[b.pid], t = pe ? pe.t : ix.t[b.tid];
     if (!t) return '';
     const name = pe ? pe.p.name : (t.name || t.tag);
-    const pic = pe && pe.p.photo ? img(pe.p.photo, 'photo') : logo(t, 'big');
+    const ph = pe && U.photo(t, pe.p), pic = pe ? img(ph.src, 'photo' + (ph.def ? ' def' : '')) : logo(t, 'big');
     const L = {
       airdrop: ['AIRDROP', '<em>LOOTED</em>'],
       sharp: [`${esc(b.v)} <small>MTR</small>`, '<em>SHARPSHOOTER</em>', 1],
@@ -264,9 +264,9 @@
   }
   /* Left side: the leading team (player photos, or the logo when there are none) */
   function hero(t, label) {
-    const ph = t.players.filter(p => p.photo);
+    const ph = t.players.map(p => U.photo(t, p));
     const mid = Math.floor((ph.length - 1) / 2);
-    return `<div class="hero"><div class="ppl">${ph.length ? ph.map((p, i) => `<img src="${esc(p.photo)}" style="z-index:${10 - Math.abs(i - mid)};height:${100 - Math.abs(i - mid) * 9}%">`).join('') : logo(t)}</div>` +
+    return `<div class="hero"><div class="ppl">${ph.length ? ph.map((p, i) => `<img class="${p.def ? 'def' : ''}" src="${esc(p.src)}" style="z-index:${10 - Math.abs(i - mid)};height:${100 - Math.abs(i - mid) * 9}%">`).join('') : logo(t)}</div>` +
       `${plate() ? '<img class="rib" src="img/ribbon.png" alt="">' : ''}<div class="hb lq"><b>${esc(label)}</b>${flag(t)}<span>${esc(t.name || t.tag)}</span></div></div>`;
   }
   function table(list, cols, moves, mp, off) {
@@ -294,7 +294,7 @@
   function playerCard(pid, i, withTeam) {
     const e = ix.p[pid]; if (!e) return '';
     const tot = U.playerTotals(cfg, H(), live)[pid] || { k: 0, kn: 0, dmg: 0, surv: 0, n: 0 };
-    return `<div class="pc lq" style="animation-delay:${i * 90}ms"><div class="ph">${e.p.photo ? img(e.p.photo) : logo(e.t, 'wm')}${withTeam ? `<div class="rkn">#${i + 1}</div>` : ''}</div><div class="nm lqb">${drips('pc' + pid, 4)}${esc(e.p.name)}</div>` +
+    return `<div class="pc lq" style="animation-delay:${i * 90}ms"><div class="ph">${(ph => img(ph.src, ph.def ? 'def' : ''))(U.photo(e.t, e.p))}${withTeam ? `<div class="rkn">#${i + 1}</div>` : ''}</div><div class="nm lqb">${drips('pc' + pid, 4)}${esc(e.p.name)}</div>` +
       (withTeam ? `<div class="tm">${e.t.logo ? img(e.t.logo) : ''}${esc(e.t.tag)}</div>` : '') +
       `<dl><div>ELIMS<dd>${tot.k}</dd></div><div>DAMAGE<dd>${Math.round(tot.dmg)}</dd></div><div>KNOCKS<dd>${tot.kn}</dd></div><div>AVG. SURV.<dd>${tot.n ? U.mmss(tot.surv / tot.n) : '--:--'}</dd></div></dl></div>`;
   }
@@ -363,7 +363,7 @@
       const v = stats[pid] || { k: 0, kn: 0, dmg: 0 };
       const tile = (n, l) => `<div class="lq"><b>${n}</b><span>${l}</span></div>`;
       return frame(sc === 'match' ? 'MATCH MVP' : sc === 'all' ? 'TOURNAMENT MVP' : 'PLAYER SPOTLIGHT', sub([cfg.stage, sc === 'match' ? 'MATCH ' + (matchStats === live.players ? live.matchNo : hm[hm.length - 1].no) : '']),
-        `<div class="mv1"><div class="ph lq">${e.p.photo ? img(e.p.photo) : logo(e.t, 'wm')}</div><div class="inf"><div class="nm">${esc(e.p.name)}</div><div class="tm">${e.t.logo ? img(e.t.logo) : ''}<span>${esc(e.t.name || e.t.tag)}</span>${flag(e.t)}</div>` +
+        `<div class="mv1"><div class="ph lq">${(ph => img(ph.src, ph.def ? 'def' : ''))(U.photo(e.t, e.p))}</div><div class="inf"><div class="nm">${esc(e.p.name)}</div><div class="tm">${e.t.logo ? img(e.t.logo) : ''}<span>${esc(e.t.name || e.t.tag)}</span>${flag(e.t)}</div>` +
         `<div class="sts">${tile(v.k || 0, 'ELIMS')}${tile(Math.round(+v.dmg || 0), 'DAMAGE')}${tile(v.kn || 0, 'KNOCKS')}${sc !== 'match' && v.n ? tile(U.mmss(v.surv / v.n), 'AVG. SURV.') : ''}</div></div></div>`);
     }
     return '';

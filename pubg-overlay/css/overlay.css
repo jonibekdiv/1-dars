@@ -530,3 +530,10 @@ img { display: block; object-fit: contain; }
 /* room for two-digit ranks (#17…) */
 .sc.plate .tr { grid-template-columns: 26px 76px 40px 46px 1fr 58px 100px 74px 104px; }
 #rank.many { top: 150px; }
+
+/* default characters are cut-outs: show them whole, standing on the bottom edge */
+img.def { object-fit: contain !important; object-position: 50% 100% !important; }
+.hero .ppl img.def { flex-basis: 34%; margin: 0 -6%; }
+.bn .pic .photo.def { width: 176px; height: 140px; margin-right: 14px; }
+.pc .ph img.def { padding-top: 10px; }
+.mv1 .ph img.def { padding-top: 16px; }

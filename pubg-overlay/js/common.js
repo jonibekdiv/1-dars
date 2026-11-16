@@ -149,6 +149,14 @@ const U = {
       teams: cfg.teams.map(t => ({ id: t.id, tag: t.tag, name: t.name, flag: t.flag, logo: t.logo, players: t.players.map(p => ({ id: p.id, name: p.name })) }))
     };
   },
+  /* Player picture: the uploaded photo, otherwise one of the four default characters
+     (by the player's place in the team, so the four players of a team look different) */
+  DEF_CHARS: ['img/chars/c1.webp', 'img/chars/c2.webp', 'img/chars/c3.webp', 'img/chars/c4.webp'],
+  photo(t, p) {
+    if (p && p.photo) return { src: p.photo, def: false };
+    const i = Math.max(0, t && p ? t.players.findIndex(x => x.id === p.id) : 0);
+    return { src: U.DEF_CHARS[i % U.DEF_CHARS.length], def: true };
+  },
   PER_PAGE: 16,                                    // teams per page of a standings scene / picture
   pages(n) { return Math.max(1, Math.ceil(n / U.PER_PAGE)); },
   mmss(sec) {

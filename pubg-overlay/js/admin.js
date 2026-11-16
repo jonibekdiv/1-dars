@@ -398,7 +398,7 @@
       sub: (overall ? [cfg.stage, 'POST MATCH ' + sh.matches.length] : [cfg.stage, 'MATCH ' + last.no, last.map]).concat(pages > 1 ? [(pg + 1) + '/' + pages] : []),
       brand: { logo: cfg.logo, title: cfg.title, pos: cfg.brand.pos, size: cfg.brand.size, name: cfg.brand.name }, sponsors: cfg.sponsors, bg: cfg.bg,
       note: overall && mp.on && !pg ? 'MATCH POINT TARGET ' + mp.target : '',
-      hero: { rank: off + 1, name: part[0].t.name || part[0].t.tag, tag: part[0].t.tag, flag: U.flagUrl(part[0].t.flag), logo: part[0].t.logo, photos: part[0].t.players.map(p => p.photo).filter(Boolean) }, first: !pg,
+      hero: { rank: off + 1, name: part[0].t.name || part[0].t.tag, tag: part[0].t.tag, flag: U.flagUrl(part[0].t.flag), logo: part[0].t.logo, photos: part[0].t.players.map(p => U.photo(part[0].t, p)) }, first: !pg,
       rows: part.map((r, i) => ({ rank: off + i + 1, mv: overall ? (moves[r.t.id] || 0) : null, flag: U.flagUrl(r.t.flag), logo: r.t.logo, tag: r.t.tag || r.t.name, mark: overall && mp.champ === r.t.id ? 'champ' : overall && mp.mp[r.t.id] ? 'mp' : '', cols: [overall ? r.wwcd : (r.wwcd ? '●' : '0'), r.pp, r.elims, r.total] }))
     });
     if (blob) download((overall ? 'overall' : 'match-' + last.no) + (pages > 1 ? '-' + (pg + 1) : '') + '.png', blob); else return alert('Rasm yaratilmadi');

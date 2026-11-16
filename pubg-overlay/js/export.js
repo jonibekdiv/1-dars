@@ -59,7 +59,8 @@ const Exporter = (() => {
     const c = cv.getContext('2d');
     const own = !!o.bg;
     const [bg, ribbon, brand, hflag, hlogo] = await Promise.all([load(o.bg || 'img/bg-rank.webp'), load(own ? '' : 'img/ribbon.png'), load(o.brand.logo), load(o.hero.flag), load(o.hero.logo)]);
-    const photos = (await Promise.all(o.hero.photos.slice(0, 5).map(load))).filter(Boolean);
+    const phs = o.hero.photos.slice(0, 5).map(p => typeof p === 'string' ? { src: p, def: false } : p);
+    const photos = (await Promise.all(phs.map(p => load(p.src)))).map((im, i) => im && { im, def: phs[i].def }).filter(Boolean);
     const sponsors = (await Promise.all(o.sponsors.slice(0, 6).map(load))).filter(Boolean);
     const rowImgs = await Promise.all(o.rows.map(r => Promise.all([load(r.flag), load(r.logo)])));
 
@@ -97,7 +98,9 @@ const Exporter = (() => {
     if (photos.length) {
       const n = photos.length, mid = Math.floor((n - 1) / 2), w = hw * .30, step = w * .70, total = step * (n - 1) + w, x0 = hx + (hw - total) / 2;
       const order = photos.map((p, i) => i).sort((a, b) => Math.abs(b - mid) - Math.abs(a - mid));   // centre drawn last = in front
-      order.forEach(i => { const h = hh * (1 - Math.abs(i - mid) * .09); coverTop(c, photos[i], x0 + i * step, hy + hh - h, w, h); });
+      order.forEach(i => { const h = hh * (1 - Math.abs(i - mid) * .09), p = photos[i];
+        if (p.def) { const s = Math.min(w * 1.25 / p.im.width, h / p.im.height), dw = p.im.width * s, dh = p.im.height * s; c.drawImage(p.im, x0 + i * step + (w - dw) / 2, hy + hh - dh, dw, dh); }
+        else coverTop(c, p.im, x0 + i * step, hy + hh - h, w, h); });
     } else if (hlogo) contain(c, hlogo, hx + hw * .2, hy + 40, hw * .6, hh * .62);
     else if (o.hero.tag) {
       const pnl = await load('img/panel.png');
