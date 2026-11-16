@@ -11,7 +11,7 @@
   let tab = 'live', sel = null, cur = null, kb = '', filter = '', undo = [], lastKillTeam = null, quiet = false;
   const queue = []; let pumping = false, pumpDone = Promise.resolve();
   const ui = { zone: 30, dist: 300, dmg: 500, c1: '', c2: '', team: '', team2: '', imin: 5, ih1: '', mapId: '', mapTeam: '', newAdmin: '', admins: null, newRoom: '', add: {} };
-  let ME = null, ROOMS = [];
+  let ME = null, ROOMS = [], started = false;     // nothing is drawn or saved before a tournament is opened
 
   /* ---------- persistence ---------- */
   let pubT = 0;
@@ -611,16 +611,18 @@
     el.className = 'st ' + s;
     el.textContent = s === 'ok' ? '● Ulangan' : s === 'local' ? '● Lokal rejim' : '● ' + (msg || 'Xato');
   });
-  Store.on('config', d => { if (d._w !== me) { cfg = U.normConfig(d); ix = U.index(cfg); render(); } });
-  Store.on('history', d => { if (d._w !== me) { hist = U.normHist(d); render(); } });
-  Store.on('maps', d => { if (d._w !== me) { maps = U.normMaps(d); render(); } });
+  Store.on('config', d => { if (started && d._w !== me) { cfg = U.normConfig(d); ix = U.index(cfg); render(); } });
+  Store.on('history', d => { if (started && d._w !== me) { hist = U.normHist(d); render(); } });
+  Store.on('maps', d => { if (started && d._w !== me) { maps = U.normMaps(d); render(); } });
   Store.on('live', d => {
+    if (!started) return;
     if ((d._s || 0) <= (server._s || 0)) return;                 // our own write coming back, or something older
     server = U.normLive(d);
     if (!pumping && !queue.length) { live = U.normLive(U.clone(server)); render(); }
   });
 
   async function start() {
+    started = true;
     const [c, l, h, m] = await Promise.all([Store.load('config'), Store.load('live'), Store.load('history'), Store.load('maps')]);
     cfg = U.normConfig(c); ix = U.index(cfg); hist = U.normHist(h); maps = U.normMaps(m);
     server = U.normLive(l); live = U.normLive(U.clone(server));
@@ -676,7 +678,7 @@
     start();
   }
   (async () => {
-    if (Store.mode === 'supabase' && Store.roomParam) await Store.init(); else if (Store.mode === 'supabase') Store.connect(); else await Store.init();
+    if (Store.mode === 'supabase') Store.connect(); else await Store.init();   // realtime only after access to the tournament is confirmed
     if (!(await Store.user())) {
       $('#login').hidden = false;
       $('#signUp').addEventListener('click', async () => {

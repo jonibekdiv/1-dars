@@ -36,10 +36,15 @@ Har bir jamoa kartasida raqam bor (01, 02…), o'yinchilarda ham (1–4).
 Misol: `011 A 032 K` — 1-jamoaning 1-o'yinchisi 3-jamoaning 2-o'yinchisini o'ldirdi.
 `Backspace` — raqamni tozalash, `Esc` — bekor qilish, `Ctrl+Z` — orqaga.
 
-### Bir nechta admin
+### Bir nechta turnir va adminlar
 
-Sozlamalar → **Adminlar** bo'limida yangi admin emailini qo'shing; u admin sahifasida o'sha email bilan ro'yxatdan o'tadi.
-Bir vaqtda ishlash mumkin (masalan biri kill, biri sahnalar) — hech kim boshqasining ishini o'chirmaydi. Tepada "👥 2 admin" ko'rinadi.
+- **Asosiy admin (egasi)** — birinchi ro'yxatdan o'tgan hisob. Kirgandan keyin **Turnirlar** sahifasi ochiladi:
+  yangi turnir ochish, nomini o'zgartirish, o'chirish va har bir turnirga admin emailini qo'shish/olib tashlash.
+- **Turnir admini** — egasi qo'shgan email bilan admin sahifasida **Ro'yxatdan o'tish** ni bosadi (tasdiqlash xati kerak emas).
+  U faqat o'ziga biriktirilgan turnir(lar)ni ko'radi va boshqaradi. Bir turnirda bir nechta admin bir vaqtda ishlay oladi.
+- Har bir turnirning jamoalari, natijalari, xaritalari alohida. OBS havolasi: `overlay.html?room=TURNIR_KODI`,
+  jadval: `table.html?room=TURNIR_KODI` — Turnirlar sahifasidagi tugmalar bilan nusxalanadi.
+- Eski havola (`overlay.html`, room'siz) birinchi turnirni ("main") ko'rsatishda davom etadi.
 
 ### Sahnalar (hammasi faqat admin bosganda chiqadi, o'sha tugma qayta bosilsa yopiladi)
 
