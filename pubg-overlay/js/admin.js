@@ -635,6 +635,7 @@
   const base = location.href.replace(/admin\.html.*$/, '');
   async function picker(msg) {
     document.body.classList.add('picking');
+    $('#status').className = 'st ok'; $('#status').textContent = '● Ulangan';
     let list = [];
     try { list = ROOMS = await Store.rooms(); } catch (e) { msg = 'Turnirlar yuklanmadi: ' + e.message; }
     const members = ME.owner ? await Promise.all(list.map(r => Store.roomAdmins(r.room))) : [];
