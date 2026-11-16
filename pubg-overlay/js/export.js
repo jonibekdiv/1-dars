@@ -25,6 +25,34 @@ const Exporter = (() => {
     if (maxW) c.fillText(str, x, y, maxW); else c.fillText(str, x, y);
   }
 
+  /* Liquid band like on the stream: glossy red body with hanging drips and falling drops */
+  function liquid(c, x, y, w, h, seed) {
+    let k = seed >>> 0 || 7; const rnd = () => (k = (Math.imul(k, 1103515245) + 12345) >>> 0) / 4294967296;
+    const r = Math.min(10, h / 2);
+    const body = () => { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); };
+    const g = c.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, '#ff4a5e'); g.addColorStop(.46, '#d0142c'); g.addColorStop(1, '#810c1b');
+    c.save(); c.shadowColor = 'rgba(0,0,0,.45)'; c.shadowBlur = 12; c.shadowOffsetY = 4;
+    c.fillStyle = g; body(); c.fill(); c.shadowColor = 'transparent';
+    // drips: a neck that widens into a rounded tip, plus a separate falling drop
+    const n = Math.max(3, Math.round(w / 110));
+    for (let i = 0; i < n; i++) {
+      const cx = x + w * (.07 + .86 * (i + .15 + rnd() * .7) / n), dw = 10 + rnd() * 9, dh = 12 + rnd() * 22, top = y + h - 3;
+      const dg = c.createLinearGradient(cx - dw / 2, 0, cx + dw / 2, 0); dg.addColorStop(0, '#810c1b'); dg.addColorStop(.4, '#d0142c'); dg.addColorStop(1, '#4c0610');
+      c.fillStyle = dg; c.beginPath();
+      c.moveTo(cx - dw * .9, top); c.quadraticCurveTo(cx - dw * .35, top + 2, cx - dw * .32, top + dh * .55);
+      c.quadraticCurveTo(cx - dw * .52, top + dh, cx, top + dh); c.quadraticCurveTo(cx + dw * .52, top + dh, cx + dw * .32, top + dh * .55);
+      c.quadraticCurveTo(cx + dw * .35, top + 2, cx + dw * .9, top); c.closePath(); c.fill();
+      if (rnd() > .45) { const dy = top + dh + 6 + rnd() * 16, rr = dw * .3; const rg = c.createRadialGradient(cx - rr * .3, dy - rr * .3, 1, cx, dy, rr * 1.2); rg.addColorStop(0, '#ff4a5e'); rg.addColorStop(1, '#4c0610'); c.fillStyle = rg; c.beginPath(); c.ellipse(cx, dy, rr, rr * 1.2, 0, 0, Math.PI * 2); c.fill(); }
+    }
+    // gloss + sheen
+    const gl = c.createLinearGradient(0, y, 0, y + h * .5); gl.addColorStop(0, 'rgba(255,255,255,.5)'); gl.addColorStop(1, 'rgba(255,255,255,.04)');
+    c.fillStyle = gl; c.beginPath(); c.roundRect ? c.roundRect(x + w * .025, y + 3, w * .95, h * .44, h * .22) : c.rect(x + w * .025, y + 3, w * .95, h * .44); c.fill();
+    const sh = c.createLinearGradient(x + w * .55, 0, x + w * .8, 0); sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(.5, 'rgba(255,255,255,.2)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = sh; body(); c.fill();
+    c.restore();
+  }
+
   async function ranking(o) {
     try { await Promise.all([document.fonts.load(`82px ${SLAB}`), document.fonts.load(`700 40px ${FONT}`), document.fonts.load(`800 40px ${FONT}`)]); } catch (e) { /* fall back to system fonts */ }
     const cv = document.createElement('canvas'); cv.width = 1920; cv.height = 1080;
@@ -71,7 +99,11 @@ const Exporter = (() => {
       const order = photos.map((p, i) => i).sort((a, b) => Math.abs(b - mid) - Math.abs(a - mid));   // centre drawn last = in front
       order.forEach(i => { const h = hh * (1 - Math.abs(i - mid) * .09); coverTop(c, photos[i], x0 + i * step, hy + hh - h, w, h); });
     } else if (hlogo) contain(c, hlogo, hx + hw * .2, hy + 40, hw * .6, hh * .62);
-    else if (o.hero.tag) text(c, String(o.hero.tag).toUpperCase(), hx + hw / 2, hy + hh * .42, `800 150px ${FONT}`, 'center', 'rgba(255,255,255,.9)', hw * .8);
+    else if (o.hero.tag) {
+      const pnl = await load('img/panel.png');
+      if (pnl) c.drawImage(pnl, hx + hw / 2 - 190, hy + 40, 380, 300);
+      text(c, String(o.hero.tag).toUpperCase(), hx + hw / 2, hy + 192, `800 120px ${FONT}`, 'center', '#fff', 320);
+    }
     c.restore();
     if (ribbon) c.drawImage(ribbon, 315, 705, 605, 213);
     else { const g = c.createLinearGradient(315, 0, 920, 0); g.addColorStop(0, '#ff4a5e'); g.addColorStop(.4, '#d0142c'); g.addColorStop(1, '#810c1b'); c.fillStyle = g; c.fillRect(330, 752, 580, 110); }
@@ -84,7 +116,7 @@ const Exporter = (() => {
     text(c, o.hero.name.toUpperCase(), x, 812, `800 54px ${FONT}`, 'left', '#fff', 300);
 
     // table
-    const tx = 1085, tw = 653, n = o.rows.length, th = Math.max(18, Math.min(62, Math.floor(574 / (n + (o.note ? 2 : 1)))));
+    const tx = 1085, tw = 653, n = o.rows.length, th = Math.max(18, Math.min(62, Math.floor(574 / (n + (o.note ? 2 : 1) + .45))));
     const col = { mv: tx + 13, rk: tx + 59, fl: tx + 114, lg: tx + 160, nm: tx + 194, c: [tw - 316, tw - 234, tw - 144, tw - 53].map(v => tx + v) };
     let y = 298 + Math.min(th, 44) / 2;
     const hf = `700 16px ${FONT}`;
@@ -96,7 +128,8 @@ const Exporter = (() => {
     const fs = Math.round(th * .62);
     o.rows.forEach((r, i) => {
       const cy = y + th / 2, [fl, lg] = rowImgs[i];
-      if (r.mark) { c.save(); c.shadowColor = 'transparent'; c.fillStyle = r.mark === 'champ' ? 'rgba(255,210,74,.28)' : 'rgba(255,210,74,.13)'; c.fillRect(tx, y + 1, tw, th - 2); c.restore(); }
+      if (i === 0) liquid(c, tx - 4, y + 2, tw + 8, th - 4, 12345 + n);
+      if (r.mark && i > 0) { c.save(); c.shadowColor = 'transparent'; c.fillStyle = r.mark === 'champ' ? 'rgba(255,210,74,.28)' : 'rgba(255,210,74,.13)'; c.fillRect(tx, y + 1, tw, th - 2); c.restore(); }
       if (r.mv !== null) {
         c.save(); c.shadowColor = 'transparent';
         if (r.mv > 0) { c.fillStyle = '#ff4a5e'; c.beginPath(); c.moveTo(col.mv - 8, cy + 6); c.lineTo(col.mv + 8, cy + 6); c.lineTo(col.mv, cy - 7); c.fill(); }
@@ -108,10 +141,10 @@ const Exporter = (() => {
       const fw = Math.min(38, th * .66), fh = fw * .66, ls = Math.min(44, th - 10);
       if (fl) c.drawImage(fl, col.fl - fw / 2, cy - fh / 2, fw, fh);
       if (lg) contain(c, lg, col.lg - ls / 2, cy - ls / 2, ls, ls);
-      text(c, String(r.tag).toUpperCase() + (r.mark === 'champ' ? '  ★' : ''), col.nm, cy + 1, `700 ${fs}px ${FONT}`, 'left', r.mark ? '#ffd24a' : '#fff', 130);
+      text(c, String(r.tag).toUpperCase() + (r.mark === 'champ' ? '  ★' : ''), col.nm, cy + 1, `700 ${fs}px ${FONT}`, 'left', r.mark && i > 0 ? '#ffd24a' : '#fff', 130);
       r.cols.forEach((v, k) => text(c, String(v), col.c[k], cy + 1, `${k === 3 ? 800 : 700} ${fs}px ${FONT}`, 'center'));
-      if (i < n - 1) { c.save(); c.shadowColor = 'transparent'; c.fillStyle = 'rgba(255,255,255,.13)'; c.fillRect(tx, y + th - 1, tw, 1); c.restore(); }
-      y += th;
+      if (i > 0 && i < n - 1) { c.save(); c.shadowColor = 'transparent'; c.fillStyle = 'rgba(255,255,255,.13)'; c.fillRect(tx, y + th - 1, tw, 1); c.restore(); }
+      y += th + (i === 0 ? Math.round(th * .45) : 0);
     });
 
     // sponsors
