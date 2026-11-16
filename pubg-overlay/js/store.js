@@ -177,7 +177,36 @@ const Store = (() => {
     },
     async renameRoom(r, name) { const { error } = await sb.from('overlay_rooms').update({ name: name.trim().toUpperCase() }).eq('room', r); return error ? error.message : null; },
     /* deletes the tournament with all its data (teams, results, maps) */
+    /* ---------- music files ---------- */
+    /* Supabase: public file storage (folder = tournament). Local mode: IndexedDB of this browser. */
+    async uploadMedia(file) {
+      if (!useSb) {
+        const id = 'idb:' + Math.random().toString(36).slice(2, 10), db = await idbOpen();
+        await new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(file, 'media:' + id); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+        return { url: id };
+      }
+      const safe = file.name.toLowerCase().replace(/[^a-z0-9.]+/g, '-').slice(-60);
+      const path = `${room}/${Date.now().toString(36)}-${safe}`;
+      const { error } = await sb.storage.from('overlay-media').upload(path, file, { contentType: file.type || 'audio/mpeg', upsert: false });
+      if (error) return { error: /maximum allowed size|too large/i.test(error.message) ? 'Fayl juda katta (30 MB gacha)' : /mime|type/i.test(error.message) ? 'Bu audio formati qabul qilinmaydi (MP3, M4A, WAV, OGG)' : error.message };
+      return { url: sb.storage.from('overlay-media').getPublicUrl(path).data.publicUrl };
+    },
+    async deleteMedia(url) {
+      if (!url) return;
+      if (url.startsWith('idb:')) { try { const db = await idbOpen(); db.transaction('kv', 'readwrite').objectStore('kv').delete('media:' + url); } catch (e) { /* ignore */ } return; }
+      const m = /\/overlay-media\/(.+)$/.exec(url); if (m && sb) await sb.storage.from('overlay-media').remove([decodeURIComponent(m[1])]);
+    },
+    /* playable address of an uploaded track */
+    async mediaUrl(url) {
+      if (!url || !url.startsWith('idb:')) return url;
+      try {
+        const db = await idbOpen();
+        const blob = await new Promise(res => { const g = db.transaction('kv').objectStore('kv').get('media:' + url); g.onsuccess = () => res(g.result); g.onerror = () => res(null); });
+        return blob ? URL.createObjectURL(blob) : null;
+      } catch (e) { return null; }
+    },
     async deleteRoom(r) {
+      try { const { data } = await sb.storage.from('overlay-media').list(r, { limit: 1000 }); if (data && data.length) await sb.storage.from('overlay-media').remove(data.map(f => r + '/' + f.name)); } catch (e) { /* files are best effort */ }
       const a = await sb.from('overlay_state').delete().eq('room', r); if (a.error) return a.error.message;
       const b = await sb.from('overlay_rooms').delete().eq('room', r); return b.error ? b.error.message : null;
     },

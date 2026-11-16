@@ -194,6 +194,19 @@
       : e.k === 'knock' ? `${e.a ? nm(e.a) : 'Zona'} <b>N</b> ${nm(e.v)}` : `${e.a ? nm(e.a) : 'Zona'} <b>☠</b> ${nm(e.v)}`}</div>`).join('');
   }
   const sceneKey = sh => !sh.scene ? '' : sh.scene + (sh.scene === 'mvp1' ? ':' + ((sh.mvp || {}).scope || '') : sh.scene === 'info' ? ':' + ((sh.info || {}).kind || '') : '');
+  /* ---------- music ---------- */
+  const MU = () => Object.assign({ id: null, playing: false, vol: 70, loop: false, mode: 'list', cmd: null }, live.show.music);
+  function musicHtml() {
+    const m = MU(), cur = cfg.music.find(t => t.id === m.id);
+    return `<div class="box music"><h3>🎵 Musiqa (OBS'da chalinadi)</h3>
+      <div class="now ${m.playing ? 'on' : ''}"><span class="eq"><i></i><i></i><i></i></span><b>${cur ? esc(cur.name) : 'Hech narsa tanlanmagan'}</b><small>${cur ? (m.playing ? 'chalinmoqda' : 'pauza') : ''}</small></div>
+      <div class="g3" style="margin:8px 0"><button data-a="muPrev" ${cfg.music.length ? '' : 'disabled'}>⏮</button><button class="${m.playing ? '' : 'pri'}" data-a="muToggle" ${cfg.music.length ? '' : 'disabled'}>${m.playing ? '⏸ Pauza' : '▶ Chalish'}</button><button data-a="muNext" ${cfg.music.length ? '' : 'disabled'}>⏭</button></div>
+      <div class="row"><span>🔈</span><input type="range" min="0" max="100" step="5" data-mu="vol" value="${m.vol}" style="flex:1"><b style="width:38px;text-align:right">${m.vol}%</b></div>
+      <div class="row"><button class="${m.mode === 'one' ? 'on' : ''}" data-a="muMode" data-v="one">🔂 Bitta qo'shiq</button><button class="${m.mode === 'list' ? 'on' : ''}" data-a="muMode" data-v="list">🔁 Ro'yxat bo'yicha</button><button data-a="muStop" ${m.id ? '' : 'disabled'}>⏹ To'xtatish</button></div>
+      <div class="tracks">${cfg.music.map((t, i) => `<div class="trk ${t.id === m.id ? 'cur' : ''}"><button class="pl" data-a="muPlay" data-id="${t.id}">${t.id === m.id && m.playing ? '⏸' : '▶'}</button><span>${i + 1}. ${esc(t.name)}</span><button class="dng" data-a="muDel" data-id="${t.id}" title="O'chirish">✕</button></div>`).join('') || '<p class="hint">Hali qo\'shiq yuklanmagan.</p>'}</div>
+      <label class="filebtn" style="margin-top:8px">${ui.uploading ? '⏳ Yuklanmoqda…' : '⬆ Musiqa yuklash (MP3, M4A, WAV, OGG · 30 MB gacha)'}<input type="file" accept="audio/*" multiple data-c="music" ${ui.uploading ? 'disabled' : ''}></label>
+      <p class="hint">OBS'da overlay manbasi sozlamasida <b>"Control audio via OBS"</b> ni belgilang — ovoz OBS mikserida chiqadi.</p></div>`;
+  }
   function sideHtml() {
     const se = sel && ix.p[sel], sh = live.show, now = sceneKey(sh);
     const tg = (k, l) => `<button class="${sh[k] ? 'on' : ''}" data-a="show" data-v="${k}">${l}</button>`;
@@ -203,6 +216,7 @@
     const tid = ui.team || (winner && winner.id) || (se && se.t.id) || '';
     const opts = v => gridTeams().map(t => `<option value="${t.id}" ${t.id === v ? 'selected' : ''}>${esc(t.tag)} — ${esc(t.name)}</option>`).join('');
     return `<div class="box"><h3>Ekranda ko'rsatish</h3><div class="g2">${tg('ranking', 'Reyting')}${tg('lower', 'Pastki banner')}${tg('wwcd', 'Final jamoalar')}${tg('sound', sh.sound ? '🔊 Ovoz yoqilgan' : '🔇 Ovoz o\'chiq')}</div></div>
+    ${musicHtml()}
     <div class="box"><h3>Zona</h3><div class="row"><input type="number" data-u="zone" value="${ui.zone}" style="max-width:80px"><span>sek</span><button class="pri" data-a="zone">Boshlash</button><button data-a="zoneOff">To'xtatish</button></div>
       <p class="hint">Oxirgi ${cfg.zoneShowAt} soniyada "CIRCLE CLOSING IN" chiqadi.</p></div>
     <div class="box"><h3>O'yinchi bannerlari ${se ? '' : '(avval o\'yinchini tanlang)'}</h3>
@@ -409,6 +423,25 @@
     }
   }
 
+  function setMusic(next) { const v = U.clone(next); act(() => { live.show.music = U.clone(v); }); }
+  function muStep(dir) {
+    if (!cfg.music.length) return;
+    const m = MU(), i = cfg.music.findIndex(t => t.id === m.id), n = cfg.music.length;
+    const id = cfg.music[((i < 0 ? (dir > 0 ? -1 : 0) : i) + dir + n) % n].id;
+    setMusic(Object.assign(m, { id, playing: true, cmd: U.uid() }));
+  }
+  async function uploadMusic(files) {
+    ui.uploading = true; render();
+    for (const f of files) {
+      if (!/^audio\//.test(f.type) && !/\.(mp3|m4a|wav|ogg|aac|flac)$/i.test(f.name)) { alert(f.name + ': bu audio fayl emas'); continue; }
+      if (f.size > 30 * 1024 * 1024) { alert(f.name + ': fayl juda katta (30 MB gacha)'); continue; }
+      const r = await Store.uploadMedia(f);
+      if (r.error) { alert(f.name + ': ' + r.error); continue; }
+      cfg.music.push({ id: U.uid(), name: f.name.replace(/\.[^.]+$/, ''), url: r.url }); saveCfg();
+    }
+    ui.uploading = false; render();
+  }
+
   const INFO = {
     soon: () => ({ h1: 'STARTING SOON', h2: cfg.stage }),
     next: () => ({ h1: 'NEXT MATCH', h2: 'MATCH ' + live.matchNo + ' ▪ ' + live.map }),
@@ -442,6 +475,17 @@
     },
     zone() { const sec = Math.max(1, +ui.zone || 30); act(() => { live.zone = { id: U.uid(), sec, at: Date.now() }; }); },
     page(d) { const p = +d.v; act(() => { live.show.page = p; }); },
+    /* the new state is computed once here: act() may apply the change twice (screen + save) */
+    muToggle() { const m = MU(), id = m.id || (cfg.music[0] || {}).id; if (!id) return; setMusic(Object.assign(m, { id, playing: !m.playing, cmd: m.id ? m.cmd : U.uid() })); },
+    muPlay(d) { const m = MU(); setMusic(m.id === d.id ? Object.assign(m, { playing: !m.playing }) : Object.assign(m, { id: d.id, playing: true, cmd: U.uid() })); },
+    muStop() { setMusic(Object.assign(MU(), { playing: false, id: null, cmd: U.uid() })); },
+    muNext() { muStep(1); }, muPrev() { muStep(-1); },
+    muMode(d) { setMusic(Object.assign(MU(), { mode: d.v })); },
+    async muDel(d) {
+      const t = cfg.music.find(x => x.id === d.id); if (!t || !confirm(`"${t.name}" o'chirilsinmi?`)) return;
+      if (MU().id === t.id) A.muStop();
+      cfg.music = cfg.music.filter(x => x !== t); saveCfg(); render(); Store.deleteMedia(t.url);
+    },
     zoneOff() { act(() => { live.zone = null; }); },
     bn(d) {
       if (!sel || !ix.p[sel]) return;
@@ -547,9 +591,11 @@
     const el = e.target, d = el.dataset;
     if (el.id === 'filter') { filter = el.value; $('#grid').innerHTML = gridHtml(); }
     else if (d.u) ui[d.u] = el.value;
+    else if (d.mu === 'vol') { const b = el.parentNode.querySelector('b'); if (b) b.textContent = el.value + '%'; }
   });
   document.addEventListener('change', async e => {
     const el = e.target, d = el.dataset;
+    if (d.c === 'music') { const fs = [...el.files]; el.value = ''; if (fs.length) uploadMusic(fs); return; }
     if (d.c === 'restore') { if (el.files[0]) restore(el.files[0]); el.value = ''; return; }
     if (d.c) { // image uploads
       const f = el.files[0]; if (!f) return;
@@ -575,6 +621,7 @@
     }
     else if (d.l) { const k = d.l, v = k === 'matchNo' ? Math.max(1, +el.value || 1) : el.value.toUpperCase(); act(() => { live[k] = v; }); }
     else if (d.place) { const id = d.place, v = +el.value; act(() => { const r = live.teams[id] || (live.teams[id] = {}); if (v > 0) { r.place = v; r.m = 1; } else { delete r.place; delete r.m; } }); }
+    else if (d.mu === 'vol') setMusic(Object.assign(MU(), { vol: +el.value }));
     else if (d.dmg) { const id = d.dmg, v = +el.value || 0; act(() => { P(id).dmg = v; }); }
     else if (d.g) {
       const k = d.g;

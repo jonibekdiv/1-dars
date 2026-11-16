@@ -26,6 +26,7 @@ const U = {
     c.matchPoint = Object.assign({ on: false, target: 60 }, c.matchPoint);
     c.brand = Object.assign({ pos: 'tr', size: 'm', name: true }, c.brand);
     c.teams = c.teams || []; c.sponsors = c.sponsors || [];
+    c.music = Array.isArray(c.music) ? c.music : [];               // playlist: [{id, name, url}]
     c.chars = Array.isArray(c.chars) ? c.chars.slice(0, 4) : [];   // admin's own default characters (empty = built-in)
     U._chars = c.chars;
     c.teams.forEach(t => { t.players = t.players || []; });

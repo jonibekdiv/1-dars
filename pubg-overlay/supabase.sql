@@ -132,3 +132,15 @@ begin
 end;
 $$;
 revoke execute on function public.overlay_first_admin() from public, anon, authenticated;
+
+-- Musiqa fayllari: OBS hammaga ochiq o'qiydi, yuklash/o'chirish — egasi va o'sha turnir adminlari
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('overlay-media', 'overlay-media', true, 31457280,
+        array['audio/mpeg','audio/mp3','audio/wav','audio/x-wav','audio/ogg','audio/aac','audio/mp4','audio/x-m4a','audio/m4a','audio/webm','audio/flac'])
+on conflict (id) do nothing;
+create policy "overlay media read" on storage.objects for select to authenticated
+  using (bucket_id = 'overlay-media' and public.can_edit_room((storage.foldername(name))[1]));
+create policy "overlay media upload" on storage.objects for insert to authenticated
+  with check (bucket_id = 'overlay-media' and public.can_edit_room((storage.foldername(name))[1]));
+create policy "overlay media remove" on storage.objects for delete to authenticated
+  using (bucket_id = 'overlay-media' and public.can_edit_room((storage.foldername(name))[1]));

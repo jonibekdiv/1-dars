@@ -390,7 +390,43 @@
 
   function renderAll() { renderRank(); renderWwcd(); renderBase(); renderScene(); }
 
-  Store.on('config', d => { cfg = U.normConfig(d); ix = U.index(cfg); applyTheme(); renderAll(); });
+  /* ---------- music (one <audio>; the admin's state decides track, pause, volume, mode) ---------- */
+  const au = new Audio(); au.preload = 'auto';
+  let muId = null, muCmd = null, muSrc = null, fadeT = null, muLocal = null;   // muLocal: track the overlay moved on to by itself
+  function fadeTo(v, ms, done) {
+    clearInterval(fadeT); const from = au.volume, t0 = Date.now();
+    fadeT = setInterval(() => { const k = Math.min(1, (Date.now() - t0) / ms); au.volume = Math.max(0, Math.min(1, from + (v - from) * k)); if (k >= 1) { clearInterval(fadeT); done && done(); } }, 40);
+  }
+  async function loadTrack(t) {
+    const src = await Store.mediaUrl(t.url); if (!src) return false;
+    if (muSrc && muSrc.startsWith('blob:')) URL.revokeObjectURL(muSrc);
+    muSrc = src; au.src = src; return true;
+  }
+  async function takeMusic() {
+    const m = Object.assign({ id: null, playing: false, vol: 70, mode: 'list', cmd: null }, live.show.music);
+    const vol = Math.max(0, Math.min(1, (+m.vol || 0) / 100));
+    au.loop = m.mode === 'one';
+    const t = cfg.music.find(x => x.id === (m.id === muId && muLocal ? muLocal : m.id));
+    if (!m.id || !t) { if (!au.paused) fadeTo(0, 600, () => au.pause()); muId = m.id; muLocal = null; return; }
+    if (m.id !== muId || m.cmd !== muCmd) {                       // another track, or "play from the start"
+      muId = m.id; muCmd = m.cmd; muLocal = null;
+      const nt = cfg.music.find(x => x.id === m.id);
+      if (!(await loadTrack(nt))) return;
+      au.volume = 0;
+    }
+    if (m.playing) { au.play().then(() => fadeTo(vol, 700)).catch(() => {}); }
+    else if (!au.paused) fadeTo(0, 500, () => au.pause());
+    else au.volume = vol;
+    if (m.playing && !au.paused) fadeTo(vol, 300);
+  }
+  au.addEventListener('ended', async () => {                       // playlist mode: go on with the next track
+    const m = live.show.music || {}; if (!m.playing || m.mode === 'one' || !cfg.music.length) return;
+    const curId = muLocal || m.id, i = cfg.music.findIndex(x => x.id === curId), nt = cfg.music[(i + 1) % cfg.music.length];
+    muLocal = nt.id; if (await loadTrack(nt)) au.play().catch(() => {});
+  });
+  window.__music = () => ({ src: au.src, paused: au.paused, volume: +au.volume.toFixed(2), loop: au.loop, time: +au.currentTime.toFixed(1) });
+
+  Store.on('config', d => { cfg = U.normConfig(d); ix = U.index(cfg); applyTheme(); renderAll(); takeMusic(); });
   Store.on('history', d => { const s = JSON.stringify(d); if (s === lastHist) return; lastHist = s; hist = U.normHist(d); renderAll(); });
   Store.on('maps', d => { maps = U.normMaps(d); renderScene(); });
   Store.on('live', d => {
@@ -398,7 +434,7 @@
     if (s === lastLive) return;
     if ((d._s || 0) < (live._s || 0)) return;                   // an older version arriving late
     lastLive = s; live = U.normLive(d);
-    takeBanners(); takeZone(); takeInfo(); renderAll();
+    takeBanners(); takeZone(); takeInfo(); renderAll(); takeMusic();
   });
 
   (async () => {
@@ -408,7 +444,7 @@
     maps = U.normMaps(m);
     cfg = U.normConfig(c); ix = U.index(cfg); hist = U.normHist(h); lastHist = JSON.stringify(h);
     live = U.normLive(l); lastLive = JSON.stringify(l);
-    applyTheme(); takeBanners(); takeZone(); takeInfo(); renderAll();
+    applyTheme(); takeBanners(); takeZone(); takeInfo(); renderAll(); takeMusic();
     booted = true;
     Store.poll(7000);
   })();

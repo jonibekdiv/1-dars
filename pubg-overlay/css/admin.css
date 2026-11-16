@@ -186,3 +186,20 @@ body.picking #tabs, body.picking #clock, body.picking #undo, body.picking #who {
 .chr .up img { object-fit: contain; object-position: 50% 100%; }
 .chr b { font-size: 12px; color: var(--mu); }
 .chr button { position: absolute; top: 2px; right: 2px; padding: 0 6px; }
+
+/* ---------- music ---------- */
+.music .now { display: flex; align-items: center; gap: 10px; background: #090d12; border-radius: 8px; padding: 9px 12px; }
+.music .now b { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.music .now small { color: var(--mu); }
+.music .eq { display: flex; gap: 2px; align-items: flex-end; height: 16px; width: 16px; }
+.music .eq i { width: 4px; height: 4px; background: var(--mu); border-radius: 1px; }
+.music .now.on .eq i { background: var(--ok); animation: eq .8s ease-in-out infinite alternate; }
+.music .now.on .eq i:nth-child(2) { animation-delay: .25s; } .music .now.on .eq i:nth-child(3) { animation-delay: .5s; }
+@keyframes eq { from { height: 3px; } to { height: 16px; } }
+.music input[type=range] { accent-color: var(--acc); padding: 0; }
+.tracks { max-height: 210px; overflow: auto; margin-top: 4px; }
+.trk { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+.trk span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trk.cur span { color: var(--ok); font-weight: 600; }
+.trk button { padding: 4px 9px; }
+.music .filebtn { justify-content: center; width: 100%; }
