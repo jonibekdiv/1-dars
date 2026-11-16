@@ -159,9 +159,8 @@ const Store = (() => {
     async me() {
       if (!useSb) return { email: 'local', owner: true };
       const u = await this.user(); if (!u) return null;
-      const { data } = await sb.from('overlay_admins').select('role').eq('email', u.email.toLowerCase()).maybeSingle();
-      const { data: d2 } = data ? { data } : await sb.from('overlay_admins').select('role').ilike('email', u.email).maybeSingle();
-      return { email: u.email.toLowerCase(), owner: !!(d2 && d2.role === 'owner') };
+      const { data } = await sb.from('overlay_owners').select('email').eq('email', u.email.toLowerCase()).maybeSingle();
+      return { email: u.email.toLowerCase(), owner: !!data };
     },
     /* tournaments this account may run (all of them for the owner) */
     async rooms() {
