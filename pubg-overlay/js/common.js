@@ -149,6 +149,8 @@ const U = {
       teams: cfg.teams.map(t => ({ id: t.id, tag: t.tag, name: t.name, flag: t.flag, logo: t.logo, players: t.players.map(p => ({ id: p.id, name: p.name })) }))
     };
   },
+  PER_PAGE: 16,                                    // teams per page of a standings scene / picture
+  pages(n) { return Math.max(1, Math.ceil(n / U.PER_PAGE)); },
   mmss(sec) {
     sec = Math.max(0, Math.round(sec || 0));
     return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');

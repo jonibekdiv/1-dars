@@ -98,8 +98,8 @@
     const lead = list[0], rest = list.slice(1), MP = U.matchPoint(cfg, H());
     setHtml(el.querySelector('.rk-lead'),
       drips('lead' + lead.t.id, 4) + `<div class="bdg">#1${MP.mp[lead.t.id] ? ' · MP' : ''}</div>${logo(lead.t)}<div class="inf"><div class="tg">${flag(lead.t)}<span>${esc(lead.t.tag)}</span></div>${pips(lead.pl)}</div><div class="el"><b>${lead.elims}</b><small>ELIMS</small></div>`);
-    const rh = Math.max(20, Math.min(34, Math.floor(690 / Math.max(1, rest.length))));
-    el.style.setProperty('--rh', rh + 'px');
+    const rh = Math.max(18, Math.min(34, Math.floor((rest.length > 18 ? 600 : 690) / Math.max(1, rest.length))));   // many teams: stay clear of the bottom edge
+    el.style.setProperty('--rh', rh + 'px'); el.classList.toggle('many', rest.length > 18);
     const box = el.querySelector('.rk-rows');
     box.style.height = rest.length * rh + 'px';
     const keep = {};
@@ -269,7 +269,8 @@
     return `<div class="hero"><div class="ppl">${ph.length ? ph.map((p, i) => `<img src="${esc(p.photo)}" style="z-index:${10 - Math.abs(i - mid)};height:${100 - Math.abs(i - mid) * 9}%">`).join('') : logo(t)}</div>` +
       `${plate() ? '<img class="rib" src="img/ribbon.png" alt="">' : ''}<div class="hb lq"><b>${esc(label)}</b>${flag(t)}<span>${esc(t.name || t.tag)}</span></div></div>`;
   }
-  function table(list, cols, moves, mp) {
+  function table(list, cols, moves, mp, off) {
+    off = off || 0;
     const n = list.length, two = !plate() && n > 10, per = two ? Math.ceil(n / 2) : n;
     const extra = mp && mp.on ? 2 : 1;
     const th = plate() ? Math.max(18, Math.min(62, Math.floor(574 / (n + extra)))) : Math.max(30, Math.min(62, Math.floor(560 / (per + extra))));
@@ -277,14 +278,18 @@
     const mark = r => !mp ? '' : mp.champ === r.t.id ? 'champ' : mp.mp[r.t.id] ? 'mp' : '';
     const mv = r => !moves ? '' : moves[r.t.id] > 0 ? '<i class="up"></i>' : moves[r.t.id] < 0 ? '<i class="dn"></i>' : '<i class="eq"></i>';
     const hd = `<div class="tr h"><span></span><span>RANK</span><span></span><span></span><span class="nm">TEAMS</span>${cols.map(c => `<span>${c[0]}</span>`).join('')}</div>`;
-    const row = (r, i) => `<div class="tr ${i === 0 ? 'top1 lqb' : ''} ${mark(r)}" style="animation-delay:${i * 35}ms">${i === 0 ? drips('row' + r.t.id, 6) : ''}<span class="mv">${mv(r)}</span><span class="rk">#${i + 1}</span>${flag(r.t) || '<span></span>'}${r.t.logo ? img(r.t.logo, 'lg') : '<span></span>'}<span class="nm">${esc(r.t.tag || r.t.name)}</span>${cols.map(c => `<span class="${c[2] || ''}">${c[1](r)}</span>`).join('')}</div>`;
+    const row = (r, i) => `<div class="tr ${i === 0 && !off ? 'top1 lqb' : ''} ${mark(r)}" style="animation-delay:${i * 35}ms">${i === 0 && !off ? drips('row' + r.t.id, 6) : ''}<span class="mv">${mv(r)}</span><span class="rk">#${i + 1 + off}</span>${flag(r.t) || '<span></span>'}${r.t.logo ? img(r.t.logo, 'lg') : '<span></span>'}<span class="nm">${esc(r.t.tag || r.t.name)}</span>${cols.map(c => `<span class="${c[2] || ''}">${c[1](r)}</span>`).join('')}</div>`;
     const colHtml = part => `<div>${hd}${note}${part.map(x => row(x.r, x.i)).join('')}</div>`;
     const items = list.map((r, i) => ({ r, i }));
     return `<div class="tb lq ${two ? 'two' : ''}" style="--th:${th}px">${colHtml(items.slice(0, per))}${two ? colHtml(items.slice(per)) : ''}</div>`;
   }
+  /* More than 16 teams: the admin switches pages (16 per page); the hero shows the best team of the page */
   function ranking(h1, h2, list, cols, moves, mp) {
     if (!list.length) return frame(h1, h2, '');
-    return frame(h1, h2, hero(list[0].t, '#1') + table(list, cols, moves, mp), !plate() && list.length > 10 ? 'wide' : '', 'rank');
+    const pages = U.pages(list.length), pg = Math.min(pages - 1, Math.max(0, +live.show.page || 0)), off = pg * U.PER_PAGE;
+    const part = list.slice(off, off + U.PER_PAGE);
+    const h2p = pages > 1 ? h2 + ' ▪ ' + (pg + 1) + '/' + pages : h2;
+    return frame(h1, h2p, hero(part[0].t, '#' + (off + 1)) + table(part, cols, moves, pg ? null : mp, off), !plate() && part.length > 10 ? 'wide' : '', 'rank');
   }
   function playerCard(pid, i, withTeam) {
     const e = ix.p[pid]; if (!e) return '';
@@ -375,7 +380,7 @@
     const el = $('scene'), s = live.show.scene;
     if (!s) { sceneKey = ''; el.classList.remove('on'); return; }
     const html = sceneHtml();
-    const key = [s, live.show.sceneTeam, live.show.sceneTeam2, (live.show.mvp || {}).scope, (live.show.info || {}).kind].join('|');
+    const key = [s, live.show.sceneTeam, live.show.sceneTeam2, (live.show.mvp || {}).scope, (live.show.info || {}).kind, live.show.page || 0].join('|');
     const same = sceneKey === key;                              // same scene, only numbers changed
     sceneKey = key;
     if (!same && html && booted) sfx(s === 'champion' ? 'champ' : 'scene');

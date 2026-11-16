@@ -58,6 +58,11 @@ Misol: `011 A 032 K` — 1-jamoaning 1-o'yinchisi 3-jamoaning 2-o'yinchisini o'l
 | Tez orada, Keyingi match, Tanaffus | Sanoq taymeri (daqiqa) bilan tanaffus ekrani |
 | 🔊 Ovoz | Banner va sahnalarda qisqa ovoz effekti (OBS'da "Control audio via OBS" ni belgilang) |
 
+### 16 tadan ko'p jamoa
+
+Match natijasi va umumiy reyting sahnalari 16 tadan varaqlarga bo'linadi. Jonli bo'limda **"1-varoq / 2-varoq"** tugmalari chiqadi —
+admin qaysi varoq ekranda turishini tanlaydi (sahna ochilganda doim 1-varoqdan boshlanadi). PNG eksport har bir varoq uchun alohida rasm beradi.
+
 ### Sozlamalar
 
 - **Bosqichlar** — kun / guruh / final: har birining o'z matchlari, o'z jadvali va o'z jamoalari bor.

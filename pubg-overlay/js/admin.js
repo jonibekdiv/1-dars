@@ -215,6 +215,7 @@
     <div class="box"><h3>To'liq ekran sahnalar</h3>
       <div class="g2" style="margin-bottom:8px">${sc('results', 'Match natijasi')}${sc('overall', 'Umumiy reyting')}${sc('mvp', 'Top fraggers')}${sc('map', 'Xarita (drop)')}
         ${sc('mvp1', 'Match MVP', 'data-s="match"', 'mvp1:match')}${sc('mvp1', 'Turnir MVP', 'data-s="all"', 'mvp1:all')}</div>
+      ${U.pages(U.teams(cfg).length) > 1 ? `<div class="row pages"><span class="hint" style="margin:0">Jadval varog'i:</span>${Array.from({ length: U.pages(U.teams(cfg).length) }, (_, i) => `<button class="${(+sh.page || 0) === i ? 'on' : ''}" data-a="page" data-v="${i}">${i + 1}-varoq <small>(#${i * U.PER_PAGE + 1}–${Math.min(U.teams(cfg).length, (i + 1) * U.PER_PAGE)})</small></button>`).join('')}</div>` : ''}
       <button ${dis} data-a="scene" data-v="mvp1" data-s="pick" class="${now === 'mvp1:pick' ? 'on' : ''}" style="width:100%;margin-bottom:8px">MVP: tanlangan o'yinchi</button>
       <div class="row"><select data-u="team" style="flex:1"><option value="">Jamoa A…</option>${opts(tid)}</select><select data-u="team2" style="flex:1"><option value="">Jamoa B…</option>${opts(ui.team2)}</select></div>
       <div class="g3" style="margin-bottom:8px">${sc('team', 'Statistika')}${sc('champion', '🏆 Chempion')}${sc('vs', 'A vs B')}</div>
@@ -389,15 +390,20 @@
     const rows = overall ? U.overall(cfg, sh) : U.matchRows(cfg, last);
     const mp = U.matchPoint(cfg, sh), moves = {};
     if (overall && sh.matches.length > 1) { const before = U.overall(cfg, { matches: sh.matches.slice(0, -1) }); rows.forEach((r, i) => { moves[r.t.id] = before.findIndex(x => x.t.id === r.t.id) - i; }); }
+    const pages = U.pages(rows.length);
+    for (let pg = 0; pg < pages; pg++) {
+    const part = rows.slice(pg * U.PER_PAGE, (pg + 1) * U.PER_PAGE), off = pg * U.PER_PAGE;
     const blob = await Exporter.ranking({
       title: overall ? 'OVERALL RANKING' : 'MATCH RESULTS',
-      sub: overall ? [cfg.stage, 'POST MATCH ' + sh.matches.length] : [cfg.stage, 'MATCH ' + last.no, last.map],
+      sub: (overall ? [cfg.stage, 'POST MATCH ' + sh.matches.length] : [cfg.stage, 'MATCH ' + last.no, last.map]).concat(pages > 1 ? [(pg + 1) + '/' + pages] : []),
       brand: { logo: cfg.logo, title: cfg.title, pos: cfg.brand.pos, size: cfg.brand.size, name: cfg.brand.name }, sponsors: cfg.sponsors, bg: cfg.bg,
-      note: overall && mp.on ? 'MATCH POINT TARGET ' + mp.target : '',
-      hero: { name: rows[0].t.name || rows[0].t.tag, tag: rows[0].t.tag, flag: U.flagUrl(rows[0].t.flag), logo: rows[0].t.logo, photos: rows[0].t.players.map(p => p.photo).filter(Boolean) },
-      rows: rows.map((r, i) => ({ rank: i + 1, mv: overall ? (moves[r.t.id] || 0) : null, flag: U.flagUrl(r.t.flag), logo: r.t.logo, tag: r.t.tag || r.t.name, mark: overall && mp.champ === r.t.id ? 'champ' : overall && mp.mp[r.t.id] ? 'mp' : '', cols: [overall ? r.wwcd : (r.wwcd ? '●' : '0'), r.pp, r.elims, r.total] }))
+      note: overall && mp.on && !pg ? 'MATCH POINT TARGET ' + mp.target : '',
+      hero: { rank: off + 1, name: part[0].t.name || part[0].t.tag, tag: part[0].t.tag, flag: U.flagUrl(part[0].t.flag), logo: part[0].t.logo, photos: part[0].t.players.map(p => p.photo).filter(Boolean) }, first: !pg,
+      rows: part.map((r, i) => ({ rank: off + i + 1, mv: overall ? (moves[r.t.id] || 0) : null, flag: U.flagUrl(r.t.flag), logo: r.t.logo, tag: r.t.tag || r.t.name, mark: overall && mp.champ === r.t.id ? 'champ' : overall && mp.mp[r.t.id] ? 'mp' : '', cols: [overall ? r.wwcd : (r.wwcd ? '●' : '0'), r.pp, r.elims, r.total] }))
     });
-    if (blob) download((overall ? 'overall' : 'match-' + last.no) + '.png', blob); else alert('Rasm yaratilmadi');
+    if (blob) download((overall ? 'overall' : 'match-' + last.no) + (pages > 1 ? '-' + (pg + 1) : '') + '.png', blob); else return alert('Rasm yaratilmadi');
+    if (pg < pages - 1) await new Promise(r => setTimeout(r, 400));   // browsers drop downloads fired at the same instant
+    }
   }
 
   const INFO = {
@@ -427,10 +433,12 @@
         const p = INFO[d.k](), min = +ui.imin || 0;
         o.info = { kind: d.k, h1: ui.ih1.trim() || p.h1, h2: p.h2, cd: min > 0 ? { id: U.uid(), sec: Math.round(min * 60), at: Date.now() } : null };
       }
+      if (v === 'results' || v === 'overall') o.page = 0;
       const key = sceneKey(Object.assign({}, live.show, o));
       act(() => { if (v && sceneKey(live.show) === key) live.show.scene = null; else Object.assign(live.show, o); });
     },
     zone() { const sec = Math.max(1, +ui.zone || 30); act(() => { live.zone = { id: U.uid(), sec, at: Date.now() }; }); },
+    page(d) { const p = +d.v; act(() => { live.show.page = p; }); },
     zoneOff() { act(() => { live.zone = null; }); },
     bn(d) {
       if (!sel || !ix.p[sel]) return;

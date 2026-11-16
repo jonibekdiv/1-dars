@@ -110,7 +110,7 @@ const Exporter = (() => {
     // "#1 | flag NAME" centred on the ribbon
     c.font = `800 54px ${FONT}`; const nameW = Math.min(300, c.measureText(o.hero.name.toUpperCase()).width);
     const tot = 96 + 24 + (hflag ? 60 + 18 : 0) + nameW; let x = 618 - tot / 2;
-    text(c, '#1', x, 810, `800 70px ${FONT}`); x += 96;
+    const rl = '#' + (o.hero.rank || 1); text(c, rl, x, 810, `800 70px ${FONT}`); x += 96;
     c.fillStyle = 'rgba(255,255,255,.6)'; c.fillRect(x, 772, 2, 76); x += 24;
     if (hflag) { c.drawImage(hflag, x, 790, 60, 40); x += 78; }
     text(c, o.hero.name.toUpperCase(), x, 812, `800 54px ${FONT}`, 'left', '#fff', 300);
@@ -128,8 +128,8 @@ const Exporter = (() => {
     const fs = Math.round(th * .62);
     o.rows.forEach((r, i) => {
       const cy = y + th / 2, [fl, lg] = rowImgs[i];
-      if (i === 0) liquid(c, tx - 4, y + 2, tw + 8, th - 4, 12345 + n);
-      if (r.mark && i > 0) { c.save(); c.shadowColor = 'transparent'; c.fillStyle = r.mark === 'champ' ? 'rgba(255,210,74,.28)' : 'rgba(255,210,74,.13)'; c.fillRect(tx, y + 1, tw, th - 2); c.restore(); }
+      if (i === 0 && o.first !== false) liquid(c, tx - 4, y + 2, tw + 8, th - 4, 12345 + n);
+      if (r.mark && (i > 0 || o.first === false)) { c.save(); c.shadowColor = 'transparent'; c.fillStyle = r.mark === 'champ' ? 'rgba(255,210,74,.28)' : 'rgba(255,210,74,.13)'; c.fillRect(tx, y + 1, tw, th - 2); c.restore(); }
       if (r.mv !== null) {
         c.save(); c.shadowColor = 'transparent';
         if (r.mv > 0) { c.fillStyle = '#ff4a5e'; c.beginPath(); c.moveTo(col.mv - 8, cy + 6); c.lineTo(col.mv + 8, cy + 6); c.lineTo(col.mv, cy - 7); c.fill(); }
@@ -141,10 +141,10 @@ const Exporter = (() => {
       const fw = Math.min(38, th * .66), fh = fw * .66, ls = Math.min(44, th - 10);
       if (fl) c.drawImage(fl, col.fl - fw / 2, cy - fh / 2, fw, fh);
       if (lg) contain(c, lg, col.lg - ls / 2, cy - ls / 2, ls, ls);
-      text(c, String(r.tag).toUpperCase() + (r.mark === 'champ' ? '  ★' : ''), col.nm, cy + 1, `700 ${fs}px ${FONT}`, 'left', r.mark && i > 0 ? '#ffd24a' : '#fff', 130);
+      text(c, String(r.tag).toUpperCase() + (r.mark === 'champ' ? '  ★' : ''), col.nm, cy + 1, `700 ${fs}px ${FONT}`, 'left', r.mark && (i > 0 || o.first === false) ? '#ffd24a' : '#fff', 130);
       r.cols.forEach((v, k) => text(c, String(v), col.c[k], cy + 1, `${k === 3 ? 800 : 700} ${fs}px ${FONT}`, 'center'));
-      if (i > 0 && i < n - 1) { c.save(); c.shadowColor = 'transparent'; c.fillStyle = 'rgba(255,255,255,.13)'; c.fillRect(tx, y + th - 1, tw, 1); c.restore(); }
-      y += th + (i === 0 ? Math.round(th * .45) : 0);
+      if ((i > 0 || o.first === false) && i < n - 1) { c.save(); c.shadowColor = 'transparent'; c.fillStyle = 'rgba(255,255,255,.13)'; c.fillRect(tx, y + th - 1, tw, 1); c.restore(); }
+      y += th + (i === 0 && o.first !== false ? Math.round(th * .45) : 0);
     });
 
     // sponsors

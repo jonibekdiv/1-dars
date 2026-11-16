@@ -526,3 +526,7 @@ img { display: block; object-fit: contain; }
 /* MVP tiles: room between the framed tiles */
 .mv1 .sts { gap: 46px; }
 .mv1 .sts > div { padding: 24px 6px; }
+
+/* room for two-digit ranks (#17…) */
+.sc.plate .tr { grid-template-columns: 26px 76px 40px 46px 1fr 58px 100px 74px 104px; }
+#rank.many { top: 150px; }
