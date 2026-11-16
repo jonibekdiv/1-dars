@@ -26,6 +26,8 @@ const U = {
     c.matchPoint = Object.assign({ on: false, target: 60 }, c.matchPoint);
     c.brand = Object.assign({ pos: 'tr', size: 'm', name: true }, c.brand);
     c.teams = c.teams || []; c.sponsors = c.sponsors || [];
+    c.chars = Array.isArray(c.chars) ? c.chars.slice(0, 4) : [];   // admin's own default characters (empty = built-in)
+    U._chars = c.chars;
     c.teams.forEach(t => { t.players = t.players || []; });
     // stages (days / groups): each has its own matches and standings
     if (!Array.isArray(c.stages) || !c.stages.length) c.stages = [{ id: 'main', name: c.stage || 'GRAND FINALS', teams: null }];
@@ -155,7 +157,8 @@ const U = {
   photo(t, p) {
     if (p && p.photo) return { src: p.photo, def: false };
     const i = Math.max(0, t && p ? t.players.findIndex(x => x.id === p.id) : 0);
-    return { src: U.DEF_CHARS[i % U.DEF_CHARS.length], def: true };
+    const k = i % U.DEF_CHARS.length;
+    return { src: (U._chars && U._chars[k]) || U.DEF_CHARS[k], def: true };
   },
   PER_PAGE: 16,                                    // teams per page of a standings scene / picture
   pages(n) { return Math.max(1, Math.ceil(n / U.PER_PAGE)); },

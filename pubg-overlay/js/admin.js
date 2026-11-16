@@ -291,6 +291,9 @@
       <div class="row"><label style="flex:1">Joylashuvi<select data-g="bpos">${[['tr', 'O\'ng yuqori burchak'], ['tl', 'Chap yuqori burchak'], ['top', 'Tepada markazda (sarlavha ustida)'], ['bottom', 'Pastda, homiylar qatorida'], ['none', 'Ko\'rsatilmasin']].map(o => `<option value="${o[0]}" ${cfg.brand.pos === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></label>
         <label>O'lchami<select data-g="bsize">${[['s', 'Kichik'], ['m', 'O\'rta'], ['l', 'Katta']].map(o => `<option value="${o[0]}" ${cfg.brand.size === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></label></div>
       <div class="row"><label><span><input type="checkbox" data-g="bname" ${cfg.brand.name ? 'checked' : ''}> Logo yonida turnir nomini ham yozish</span></label></div>
+      <h3 style="margin-top:12px">Standart personajlar</h3>
+      <p class="hint">Rasmi yuklanmagan o'yinchilar o'rnida chiqadi: jamoadagi 1-o'yinchiga 1-personaj, 2-o'yinchiga 2-personaj va h.k. Foni shaffof PNG yuklang (beldan yuqori, tik kadr).</p>
+      <div class="chars">${U.DEF_CHARS.map((d, i) => `<div class="chr"><span class="up" title="${i + 1}-personajni almashtirish"><img src="${esc(cfg.chars[i] || d)}"><input type="file" accept="image/*" data-c="char" data-id="${i}"></span><b>${i + 1}</b>${cfg.chars[i] ? `<button class="dng" data-a="charReset" data-id="${i}" title="Asl personajga qaytarish">↺</button>` : ''}</div>`).join('')}</div>
       <h3 style="margin-top:12px">Homiylar</h3>
       <div class="spn">${cfg.sponsors.map((s, i) => `<span class="up"><img src="${esc(s)}"><button class="dng" data-a="delSp" data-id="${i}" style="position:absolute;right:2px;top:2px;padding:0 6px">✕</button></span>`).join('')}${up('', 'sponsor', '', 'Homiy logosi')}</div></div>
     <div class="box"><h3>Bosqichlar (kun / guruh / final)</h3><p class="hint">Har bir bosqichning o'z matchlari va o'z jadvali bor. Joriy bosqich ekranda ko'rsatiladi.</p>
@@ -470,6 +473,7 @@
       });
       saveCfg(); render();
     },
+    charReset(d) { cfg.chars[+d.id] = ''; saveCfg(); render(); },
     delBg() { cfg.bg = ''; saveCfg(); render(); },
     delSp(d) { cfg.sponsors.splice(+d.id, 1); saveCfg(); render(); },
     delMatch(d) { if (!confirm('Bu match natijasi o\'chirilsinmi?')) return; hist.matches.splice(+d.id, 1); saveHist(); render(); },
@@ -549,7 +553,7 @@
     if (d.c === 'restore') { if (el.files[0]) restore(el.files[0]); el.value = ''; return; }
     if (d.c) { // image uploads
       const f = el.files[0]; if (!f) return;
-      const src = await readImage(f, d.c === 'bg' ? 1920 : d.c === 'mapimg' ? 1100 : d.c === 'sponsor' ? 360 : d.c === 'pphoto' ? 400 : 200, d.c === 'mapimg' || d.c === 'bg' ? .86 : .82);
+      const src = await readImage(f, d.c === 'char' ? 760 : d.c === 'bg' ? 1920 : d.c === 'mapimg' ? 1100 : d.c === 'sponsor' ? 360 : d.c === 'pphoto' ? 400 : 200, d.c === 'mapimg' || d.c === 'bg' ? .86 : .82);
       if (!src) return alert('Rasm o\'qilmadi');
       if (d.c === 'mapimg') { maps.list.find(m => m.id === d.id).img = src; saveMaps(); render(); return; }
       if (d.c === 'tlogo') ix.t[d.id].logo = src;
@@ -557,6 +561,7 @@
       else if (d.c === 'logo') cfg.logo = src;
       else if (d.c === 'sponsor') cfg.sponsors.push(src);
       else if (d.c === 'bg') cfg.bg = src;
+      else if (d.c === 'char') { while (cfg.chars.length < 4) cfg.chars.push(''); cfg.chars[+d.id] = src; }
       saveCfg(); render();
     } else if (d.t) { ix.t[d.id][d.t] = d.t === 'name' ? el.value : d.t === 'tag' ? el.value.toUpperCase() : el.value.toLowerCase(); saveCfg(); }
     else if (d.p) { ix.p[d.id].p.name = el.value; saveCfg(); }
