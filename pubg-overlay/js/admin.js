@@ -24,7 +24,26 @@
     cfg = U.normConfig(cfg); cfg._w = me; ix = U.index(cfg); Store.set('config', cfg);
     clearTimeout(pubT); pubT = setTimeout(() => Store.set('pub', U.publicConfig(cfg)), 1500);   // slim copy for the public page
   };
-  const saveHist = () => { hist._w = me; Store.set('history', hist); };
+  /* Results are changed with a function that runs on the NEWEST saved copy and is saved only if nobody
+     changed them in between (like the live match) — a second tab or phone can never wipe finished matches. */
+  let histQ = Promise.resolve();
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  function histAct(fn) {
+    fn(hist); render();                                          // on screen at once
+    histQ = histQ.then(async () => {
+      for (;;) {
+        const r0 = await Store.loadStrict('history');
+        if (!r0.ok) { await wait(1500); continue; }              // could not read: never write a guess
+        const base = U.normHist(U.clone(r0.data) || {}), s = base._s || 0;
+        fn(base); base._s = s + 1; base._w = me;
+        const r = await Store.cas('history', s, base);
+        if (r.ok) { hist = base; render(); return; }
+        if (!r.current) await wait(1500);                        // network / permission: try again
+      }
+    });
+    return histQ;
+  }
+  const toTrash = (h, list) => { h.trash = list.map(m => Object.assign({}, m, { deletedAt: Date.now() })).concat(h.trash).slice(0, 40); };
   const saveMaps = () => { maps._w = me; Store.set('maps', maps); };
   const SH = () => U.stageHist(cfg, hist);
 
@@ -376,7 +395,8 @@
       <div class="row" style="margin-top:10px"><button class="pri" data-a="pngOverall">🖼 PNG: umumiy reyting</button><button data-a="pngMatch">🖼 PNG: oxirgi match</button><button data-a="csvTeams">CSV: jamoalar</button><button data-a="csvPlayers">CSV: o'yinchilar</button></div></div>
       <div class="box"><h3>O'yinchilar (yakunlangan matchlar)</h3><div class="tw"><table><tr><th>#</th><th class="l">O'yinchi</th><th>Kill</th><th>Nok</th><th>Damage</th><th>O'rt. yashash</th></tr>
       ${players.slice(0, 30).map((x, i) => `<tr><td>${i + 1}</td><td class="l">${esc(x.e.t.tag)} · ${esc(x.e.p.name)}</td><td>${x.s.k}</td><td>${x.s.kn}</td><td>${Math.round(x.s.dmg)}</td><td>${x.s.n ? U.mmss(x.s.surv / x.s.n) : '-'}</td></tr>`).join('')}</table></div></div></div>
-    <div class="box"><h3>Yakunlangan matchlar — ${esc(cfg.stage)}</h3>${hist.matches.map((m, gi) => (m.sid || 'main') !== cfg.stageId ? '' : `<details><summary>Match ${m.no} — ${esc(m.map || '')} <button class="dng" data-a="delMatch" data-id="${gi}">O'chirish</button></summary>${tbl(U.matchRows(cfg, m))}</details>`).join('') || '<p class="hint">Hali yo\'q.</p>'}</div>`;
+    <div class="box"><h3>Yakunlangan matchlar — ${esc(cfg.stage)}</h3>${hist.matches.map(m => (m.sid || 'main') !== cfg.stageId ? '' : `<details class="fm"><summary>Match ${m.no} — ${esc(m.map || '')} <small>· ${m.at ? new Date(m.at).toLocaleTimeString().slice(0, 5) : ''}</small></summary>${tbl(U.matchRows(cfg, m))}<div class="row" style="justify-content:flex-end;margin-top:6px"><button class="dng" data-a="delMatch" data-id="${esc(U.mid(m))}">🗑 Match ${m.no} natijasini o'chirish</button></div></details>`).join('') || '<p class="hint">Hali yo\'q.</p>'}</div>
+    ${hist.trash.length ? `<div class="box"><h3>O'chirilgan natijalar <small>(qaytarish mumkin)</small></h3>${hist.trash.map(m => `<div class="row"><span style="flex:1">Match ${m.no} — ${esc(m.map || '')} <small class="hint">· ${esc((cfg.stages.find(x => x.id === (m.sid || 'main')) || {}).name || '?')} · o'chirildi ${m.deletedAt ? new Date(m.deletedAt).toLocaleString().slice(0, 17) : ''}</small></span><button data-a="undelMatch" data-id="${esc(U.mid(m))}">↩ Qaytarish</button></div>`).join('')}</div>` : ''}`;
   }
 
   /* ---------- SETTINGS tab ---------- */
@@ -436,7 +456,9 @@
     const open = $('#side details') && $('#side details').open;
     $('#side').innerHTML = sideHtml(); if (open) $('#side details').open = true;
   }
+  let ready = false;                                 // nothing is drawn before the tournament's data has really been read
   function render() {
+    if (!ready) return;
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === tab));
     $('#undo').disabled = !undo.length;
     const m = $('#main');
@@ -467,6 +489,8 @@
     if (!U.liveRanking(cfg, live).length) return;
     if (!confirm(`Match ${live.matchNo} yakunlansinmi? Natija saqlanadi va yangi match ochiladi.`)) return;
     await pumpDone;                                              // everything typed so far is saved first
+    const fresh = await Store.loadStrict('live');               // another admin may have finished / changed it meanwhile
+    if (fresh.ok && fresh.data && (fresh.data._s || 0) > (server._s || 0) && !pumping) { server = U.normLive(fresh.data); live = U.normLive(U.clone(server)); render(); }
     const rows = U.liveRanking(cfg, live), dur = elapsed(), timed = !!live.startedAt;
     // teams still without a placement get the best free places, by players alive then elims
     const used = new Set(rows.map(r => r.place).filter(Boolean));
@@ -475,12 +499,12 @@
       while (used.has(next)) next++;
       r.place = next; used.add(next);
     });
-    const rec = { no: live.matchNo, map: live.map, sid: cfg.stageId, at: Date.now(), teams: {}, players: {} };
+    const rec = { id: U.uid(), no: live.matchNo, map: live.map, sid: cfg.stageId, at: Date.now(), teams: {}, players: {} };
     rows.forEach(r => {
       rec.teams[r.t.id] = { place: r.place, elims: r.elims };
       r.pl.forEach(p => { rec.players[p.id] = { k: p.k || 0, kn: p.kn || 0, dmg: +p.dmg || 0, surv: !timed ? null : p.st === 'd' ? (p.dt || 0) : dur }; });
     });
-    hist.matches.push(rec); saveHist();
+    histAct(h => { if (!h.matches.some(m => m.id === rec.id)) h.matches.push(U.clone(rec)); });
     const no = rec.no + 1;
     undo = []; sel = null; cur = null; kb = '';
     const mus = live.show.scene === 'champion' ? sceneMusic(null) : null;     // the fanfare ends with the champion scene
@@ -654,11 +678,22 @@
     charReset(d) { cfg.chars[+d.id] = ''; saveCfg(); render(); },
     delBg() { cfg.bg = ''; saveCfg(); render(); },
     delSp(d) { cfg.sponsors.splice(+d.id, 1); saveCfg(); render(); },
-    delMatch(d) { if (!confirm('Bu match natijasi o\'chirilsinmi?')) return; hist.matches.splice(+d.id, 1); saveHist(); render(); },
+    delMatch(d) {
+      const m = hist.matches.find(x => U.mid(x) === d.id); if (!m) return;
+      if (!confirm(`Match ${m.no} NATIJASI butunlay o'chirilsinmi?\nU umumiy reytingdan ham chiqib ketadi. ("O'chirilgan natijalar" dan qaytarish mumkin)`)) return;
+      const id = d.id; histAct(h => { const i = h.matches.findIndex(x => U.mid(x) === id); if (i >= 0) toTrash(h, h.matches.splice(i, 1)); });
+    },
+    undelMatch(d) {
+      const id = d.id; histAct(h => {
+        const i = h.trash.findIndex(x => U.mid(x) === id); if (i < 0) return;
+        const m = h.trash.splice(i, 1)[0]; delete m.deletedAt;
+        if (!h.matches.some(x => U.mid(x) === id)) { h.matches.push(m); h.matches.sort((a, b) => (a.at || 0) - (b.at || 0)); }
+      });
+    },
     resetMatch() { if (!confirm('Joriy match tozalansinmi?')) return; act(() => { const n = U.defLive(live.matchNo); n.map = live.map; n.show = live.show; live = n; }); },
     resetHist() {
       if (!confirm(`"${cfg.stage}" bosqichining BARCHA yakunlangan matchlari o'chirilsinmi?`)) return;
-      hist.matches = hist.matches.filter(m => (m.sid || 'main') !== cfg.stageId); saveHist(); act(() => { live.matchNo = 1; });
+      const sid = cfg.stageId; histAct(h => { toTrash(h, h.matches.filter(m => (m.sid || 'main') === sid)); h.matches = h.matches.filter(m => (m.sid || 'main') !== sid); }); act(() => { live.matchNo = 1; });
     },
     /* stages */
     stageAdd() { const name = prompt('Bosqich nomi (masalan: DAY 2, GROUP B, SEMI FINALS)'); if (!name) return; cfg.stages.push({ id: U.uid(), name: name.toUpperCase(), teams: null }); saveCfg(); render(); },
@@ -672,7 +707,7 @@
       const n = hist.matches.filter(m => (m.sid || 'main') === d.id).length;
       if (!confirm(`Bosqich${n ? ' va uning ' + n + ' ta match natijasi' : ''} o'chirilsinmi?`)) return;
       cfg.stages = cfg.stages.filter(s => s.id !== d.id);
-      if (n) { hist.matches = hist.matches.filter(m => (m.sid || 'main') !== d.id); saveHist(); }
+      if (n) { const sid = d.id; histAct(h => { toTrash(h, h.matches.filter(m => (m.sid || 'main') === sid)); h.matches = h.matches.filter(m => (m.sid || 'main') !== sid); }); }
       saveCfg(); render();
     },
     stageAll(d) { cfg.stages.find(s => s.id === d.id).teams = null; saveCfg(); render(); },
@@ -701,8 +736,9 @@
     let d; try { d = JSON.parse(await file.text()); } catch (e) { return alert('Fayl o\'qilmadi'); }
     if (!d || !d.config || !d.history) return alert('Bu zaxira fayli emas');
     if (!confirm('Hozirgi BARCHA ma\'lumotlar shu fayldagi bilan almashtiriladi. Davom etilsinmi?')) return;
-    cfg = U.normConfig(d.config); hist = U.normHist(d.history); maps = U.normMaps(d.maps);
-    saveCfg(); saveHist(); saveMaps();
+    cfg = U.normConfig(d.config); maps = U.normMaps(d.maps);
+    const bm = U.normHist(U.clone(d.history)).matches;
+    saveCfg(); saveMaps(); histAct(h => { toTrash(h, h.matches); h.matches = U.clone(bm); });
     const L = U.normLive(d.live); undo = [];
     act(() => { live = U.clone(L); }, true);
     alert('Tiklandi');
@@ -816,7 +852,7 @@
     el.textContent = s === 'ok' ? '● Ulangan' : s === 'local' ? '● Lokal rejim' : '● ' + (msg || 'Xato');
   });
   Store.on('config', d => { if (started && d._w !== me) { cfg = U.normConfig(d); ix = U.index(cfg); render(); } });
-  Store.on('history', d => { if (started && d._w !== me) { hist = U.normHist(d); render(); } });
+  Store.on('history', d => { if (started && d._w !== me && (d._s || 0) >= (hist._s || 0)) { hist = U.normHist(d); render(); } });
   Store.on('maps', d => { if (started && d._w !== me) { maps = U.normMaps(d); render(); } });
   Store.on('live', d => {
     if (!started) return;
@@ -827,9 +863,18 @@
 
   async function start() {
     started = true;
-    const [c, l, h, m] = await Promise.all([Store.load('config'), Store.load('live'), Store.load('history'), Store.load('maps')]);
+    // every document must really be read: an empty screen after a network error would later be saved over real data
+    let rs;
+    for (let i = 0; ; i++) {
+      rs = await Promise.all(['config', 'live', 'history', 'maps'].map(k => Store.loadStrict(k)));
+      if (rs.every(r => r.ok)) break;
+      $('#main').innerHTML = `<div class="box"><h3>Ma'lumotlar yuklanmadi</h3><p class="hint">Internet aloqasini tekshiring — qayta urinilmoqda (${i + 1})…</p></div>`;
+      await wait(2500);
+    }
+    const [c, l, h, m] = rs.map(r => r.data);
     cfg = U.normConfig(c); ix = U.index(cfg); hist = U.normHist(h); maps = U.normMaps(m);
     server = U.normLive(l); live = U.normLive(U.clone(server));
+    ready = true; $('#main').innerHTML = '';
     if (!cfg.teams.length) tab = 'teams';
     else Store.set('pub', U.publicConfig(cfg));               // keep the public standings page in sync
     Store.presence(me, 'admin', n => {

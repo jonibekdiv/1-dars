@@ -54,7 +54,9 @@ const U = {
     l._s = l._s || 0;
     return l;
   },
-  normHist(h) { h = h || {}; h.matches = h.matches || []; return h; },
+  normHist(h) { h = h || {}; h.matches = h.matches || []; h.trash = Array.isArray(h.trash) ? h.trash : []; return h; },
+  /* stable id of a finished match (older records have none) */
+  mid(m) { return m.id || (m.at + ':' + m.no); },
   normMaps(m) { m = m || {}; m.list = m.list || []; m.list.forEach(x => { x.drops = x.drops || {}; }); return m; },
 
   index(cfg) {

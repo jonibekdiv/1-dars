@@ -24,6 +24,16 @@ const Store = (() => {
     return true;
   }
 
+  /* Like load(), but tells "no such row yet" ({ok:true, data:null}) apart from "could not read" ({ok:false}):
+     an empty answer after a network error must never be written back over real data */
+  async function loadStrict(key) {
+    if (!useSb) return { ok: true, data: lsGet(key) };
+    try {
+      const { data, error } = await sb.from(TABLE).select('data').eq('room', room).eq('key', key).maybeSingle();
+      if (error) { setStatus('error', error.message); return { ok: false }; }
+      return { ok: true, data: data ? data.data : null };
+    } catch (e) { setStatus('error', 'Aloqa yo\'q'); return { ok: false }; }
+  }
   async function load(key) {
     if (!useSb) return lsGet(key);
     const { data, error } = await sb.from(TABLE).select('data').eq('room', room).eq('key', key).maybeSingle();
@@ -131,7 +141,7 @@ const Store = (() => {
   }
 
   return {
-    room, roomParam, mode: useSb ? 'supabase' : 'local', connect, init, load, set, cas,
+    room, roomParam, mode: useSb ? 'supabase' : 'local', connect, init, load, loadStrict, set, cas,
     on(key, f) { (listeners[key] = listeners[key] || []).push(f); },
     onStatus(f) { statusCb = f; },
     /* Re-read state periodically (safety net for the overlay, the only channel for the public page) */
