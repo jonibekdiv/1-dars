@@ -459,6 +459,6 @@
     applyTheme(); takeBanners(); takeZone(); takeInfo(); renderAll(); takeMusic();
     booted = true;
     Store.poll(7000);
-    Store.presence(U.uid(), 'overlay');                          // lets the admin panel show "OBS connected"
+    if (!q.has('preview')) Store.presence(U.uid(), 'overlay');   // the admin's preview tab is not OBS                          // lets the admin panel show "OBS connected"
   })();
 })();

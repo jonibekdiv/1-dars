@@ -58,6 +58,15 @@ Misol: `011 A 032 K` — 1-jamoaning 1-o'yinchisi 3-jamoaning 2-o'yinchisini o'l
 | Tez orada, Keyingi match, Tanaffus | Sanoq taymeri (daqiqa) bilan tanaffus ekrani |
 | 🔊 Ovoz | Banner va sahnalarda qisqa ovoz effekti (OBS'da "Control audio via OBS" ni belgilang) |
 
+### Kill / nok tez kiritish
+- **📌 Hujumchi qoladi**: hujumchi kill'dan keyin ham tanlangan turadi, ketma-ket killarni bosaverasiz (Esc — tozalash). O'chirilsa, har kill'dan keyin o'zi tozalanadi. Har bir admin uchun alohida eslab qolinadi.
+- **Oxirgi hujumchilar**: qidirish satri ostida oxirgi 5 ta hujumchi turadi, bir bosishda tanlanadi.
+- **☠ Hammasi** (jamoa sarlavhasida): zona yoki chiqib ketish — butun jamoa bir bosishda yopiladi, kill hech kimga yozilmaydi (nokdagilar nok qilganga). Ctrl+Z bilan qaytariladi.
+- **Oxirgi harakatlar**ni bosib tuzatish: kim o'ldirgani/nok qilganini almashtirish yoki yozuvni o'chirish (o'yinchi tiriladi, kill olib tashlanadi).
+- **⤴ Turg'izish**: nokdagi o'yinchining tugmasi ⤴ ga aylanadi, bosilsa tirik bo'ladi va jurnalga yoziladi.
+- O'lgan o'yinchining ☠ ini qayta bosish — xatoni tuzatish: o'yinchi tiriladi va kill hujumchidan olib tashlanadi.
+- **📱 Telefon rejimi**: `admin.html?m=1` (Sozlamalarda havola bor) — faqat kill/nok uchun katta tugmalar. Oddiy havola avvalgidek to'liq panelni ochadi.
+
 ### Musiqa
 - "Jonli" sahifasidagi 🎵 bo'limi: o'z qo'shiqlaringizni yuklang yoki 5 ta tayyor (o'zimiz yozgan, mualliflik muammosi yo'q) musiqadan foydalaning: jang boshlanishi, lobbi/tanaffus, keyingi match sanog'i, chempion fanfarasi, strim intro.
 - **Sahna musiqasi**: sahna ochilganda unga bog'langan musiqa o'zi boshlanadi (Chempion → fanfara, Tez orada / Tanaffus → lobbi, Keyingi match → sanoq), sahna yopilganda to'xtaydi yoki oldin chalinayotgan qo'shiq davom etadi. "⚙ Sozlash" — qaysi sahnaga qaysi musiqa. "🎬 Sahna musiqasi" tugmasi bilan butunlay o'chirib qo'yiladi.

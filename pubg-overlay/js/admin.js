@@ -10,7 +10,12 @@
   let server = U.defLive(1);        // last state known to be saved
   let tab = 'live', sel = null, cur = null, kb = '', filter = '', undo = [], lastKillTeam = null, quiet = false;
   const queue = []; let pumping = false, pumpDone = Promise.resolve();
-  const ui = { zone: 30, dist: 300, dmg: 500, c1: '', c2: '', team: '', team2: '', imin: 5, ih1: '', mapId: '', mapTeam: '', newAdmin: '', admins: null, newRoom: '', add: {} };
+  /* phone mode (admin.html?m=1): only kills / knocks with big buttons — the normal panel is unchanged */
+  const QS = new URLSearchParams(location.search), MOB = QS.get('m') === '1';
+  if (MOB) document.body.classList.add('mob');
+  const pref = (k, d) => { try { const v = localStorage.getItem('pgo:pref:' + k); return v === null ? d : v === '1'; } catch (e) { return d; } };
+  let keepAtk = pref('keepAtk', true);             // the attacker stays selected after a kill (for multi-kills)
+  const ui = { logEd: '', zone: 30, dist: 300, dmg: 500, c1: '', c2: '', team: '', team2: '', imin: 5, ih1: '', mapId: '', mapTeam: '', newAdmin: '', admins: null, newRoom: '', add: {} };
   let ME = null, ROOMS = [], started = false;     // nothing is drawn or saved before a tournament is opened
 
   /* ---------- persistence ---------- */
@@ -65,7 +70,7 @@
   }
   function log(e) {
     if (quiet) return;
-    live.log.push(Object.assign({ t: elapsed() }, e));
+    live.log.push(Object.assign({ id: U.uid(), t: elapsed() }, e));
     if (live.log.length > 14) live.log.splice(0, live.log.length - 14);
   }
   function banner(b) {
@@ -130,22 +135,65 @@
       const v = P(pid), vt = teamOf(pid);
       if (!live.startedAt) live.startedAt = Date.now();
       if (v.st === 'd') return;
-      if (v.st === 'k') { v.st = 'a'; delete v.by; return; }
+      if (v.st === 'k') { v.st = 'a'; delete v.by; log({ k: 'rev', v: pid }); return; }     // revived by a teammate
       v.st = 'k';
       const a = attackerFor(atk, vt);
       if (a) { v.by = a; P(a).kn++; } else delete v.by;
       log({ k: 'knock', a, v: pid });
       wipeCheck(vt);
     });
+    dropAtk(atk);
   }
   function kill(pid) {
     const atk = sel; if (!ix.p[pid]) return;
     act(() => {
       const v = P(pid), vt = teamOf(pid);
       if (!live.startedAt) live.startedAt = Date.now();
-      if (v.st === 'd') { v.st = 'a'; delete v.dt; return; }
+      if (v.st === 'd') { unkill(pid); return; }                  // a mistake: the kill is taken back
       die(pid, attackerFor(atk, vt) || v.by);
       wipeCheck(vt);
+    });
+    dropAtk(atk);
+  }
+  /* back to alive: the killer loses that kill and the log line goes (used by ☠ on a dead player and by the log editor) */
+  function unkill(pid, entryId) {
+    const v = P(pid);
+    const e = entryId ? live.log.find(x => x.id === entryId) : live.log.slice().reverse().find(x => x.k === 'kill' && x.v === pid);
+    if (e && e.a && live.players[e.a]) P(e.a).k = Math.max(0, (P(e.a).k || 0) - 1);
+    if (e) live.log = live.log.filter(x => x !== e);
+    v.st = 'a'; delete v.dt; delete v.by;
+  }
+  function dropAtk(atk) { if (atk && !keepAtk && sel === atk) { sel = null; render(); } }
+  /* the whole team out at once (zone, left the game): no kill credit, knocked players count for who knocked them */
+  function wipe(tid) {
+    const t = ix.t[tid]; if (!t) return;
+    act(() => {
+      if (!live.startedAt) live.startedAt = Date.now();
+      t.players.forEach(p => { if (P(p.id).st === 'a') die(p.id, null); });
+      wipeCheck(t);
+    });
+  }
+  /* log editor: another attacker (or the zone) for a kill / knock, or delete the line */
+  function logFix(id, na) {
+    act(() => {
+      const e = live.log.find(x => x.id === id); if (!e || (e.k !== 'kill' && e.k !== 'knock') || e.a === na) return;
+      const f = e.k === 'kill' ? 'k' : 'kn', v = P(e.v);
+      if (e.a && live.players[e.a]) P(e.a)[f] = Math.max(0, (P(e.a)[f] || 0) - 1);
+      if (na) P(na)[f] = (P(na)[f] || 0) + 1;
+      if (e.k === 'knock' && v.st === 'k') { if (na) v.by = na; else delete v.by; }
+      e.a = na;
+    });
+  }
+  function logDel(id) {
+    act(() => {
+      const e = live.log.find(x => x.id === id); if (!e) return;
+      if (e.k === 'kill') { if (P(e.v).st === 'd') unkill(e.v, id); else live.log = live.log.filter(x => x !== e); return; }
+      if (e.k === 'knock') {
+        if (e.a && live.players[e.a]) P(e.a).kn = Math.max(0, (P(e.a).kn || 0) - 1);
+        const v = P(e.v); if (v.st === 'k') { v.st = 'a'; delete v.by; }
+      }
+      if (e.k === 'rev') { const v = P(e.v); if (v.st === 'a') v.st = 'k'; }
+      live.log = live.log.filter(x => x !== e);
     });
   }
 
@@ -174,10 +222,10 @@
       const tl = U.teamLive(cfg, live, t);
       const hit = !f || (t.tag + ' ' + t.name + ' ' + t.players.map(p => p.name).join(' ')).toLowerCase().includes(f);
       return `<div class="tc ${tl.out ? 'out' : ''} ${hit ? '' : 'dim'}"><div class="hd"><i class="no">${String(n + 1).padStart(2, '0')}</i>${t.logo ? `<img src="${esc(t.logo)}">` : ''}<span>${esc(t.tag)}</span>` +
-        (tl.place ? `<span class="pl ${tl.place === 1 ? 'w' : ''}">#${tl.place}</span>` : '') + `<span class="el">${tl.elims}</span></div>` +
+        (tl.place ? `<span class="pl ${tl.place === 1 ? 'w' : ''}">#${tl.place}</span>` : '') + `<span class="el">${tl.elims}</span>${tl.out ? '' : `<button class="wipe" data-a="wipe" data-id="${t.id}" title="Butun jamoa yopildi (zona / chiqib ketdi)">☠ Hammasi</button>`}</div>` +
         tl.pl.map((p, i) => `<div class="pr ${p.st} ${cur === p.id ? 'cur' : ''}"><button class="nm ${sel === p.id ? 'sel' : ''}" data-a="sel" data-id="${p.id}"><i>${i + 1}</i>${esc(p.name)}</button>` +
           `<button class="mini" data-a="km" data-id="${p.id}">−</button><span class="k">${p.k || 0}</span><button class="mini" data-a="kp" data-id="${p.id}">+</button>` +
-          `<button class="bk ${p.st === 'k' ? 'on' : ''}" data-a="knock" data-id="${p.id}" title="Nok">N</button><button class="bd ${p.st === 'd' ? 'on' : ''}" data-a="kill" data-id="${p.id}" title="O'ldi">☠</button></div>`).join('') + '</div>';
+          `<button class="bk ${p.st === 'k' ? 'on' : ''}" data-a="knock" data-id="${p.id}" title="${p.st === 'k' ? 'Turg\'izildi (revive)' : 'Nok'}">${p.st === 'k' ? '⤴' : 'N'}</button><button class="bd ${p.st === 'd' ? 'on' : ''}" data-a="kill" data-id="${p.id}" title="O'ldi">☠</button></div>`).join('') + '</div>';
     }).join('') || '<div class="box">Jamoalar yo\'q. "Jamoalar" bo\'limida qo\'shing.</div>';
   }
   function atkHtml() {
@@ -186,12 +234,28 @@
     return (se ? `<span class="hint">HUJUMCHI</span><b>${esc(se.t.tag)} · ${esc(se.p.name)}</b><button data-a="unsel">✕ Esc</button>`
       : '<span class="hint">Avval <b>hujumchi ismi</b>, keyin qurbonning <b>N</b> / <b>☠</b>. Tanlanmasa — zona.</span>') + kbd;
   }
+  /* the last attackers, one tap to pick again */
+  function recHtml() {
+    const seen = [], L = live.log.slice().reverse();
+    for (const e of L) { if (e.a && ix.p[e.a] && !seen.includes(e.a) && P(e.a).st !== 'd') seen.push(e.a); if (seen.length >= 5) break; }
+    return `<span class="hint">${seen.length ? 'Oxirgi:' : 'Oxirgi hujumchilar shu yerda chiqadi'}</span>` +
+      seen.map(id => `<button class="chip ${sel === id ? 'on' : ''}" data-a="sel" data-id="${id}">${esc(ix.p[id].t.tag)} · ${esc(ix.p[id].p.name)} <b>${P(id).k || 0}</b></button>`).join('') +
+      `<button class="keep ${keepAtk ? 'on' : ''}" data-a="keepAtk" title="Yoqilgan: hujumchi kill'dan keyin ham tanlangan qoladi (ketma-ket killar uchun). O'chiq: har kill'dan keyin o'zi tozalanadi.">📌 ${keepAtk ? 'Hujumchi qoladi' : 'Hujumchi tozalanadi'}</button>`;
+  }
   function logHtml() {
     const nm = pid => ix.p[pid] ? `${esc(ix.p[pid].t.tag)} ${esc(ix.p[pid].p.name)}` : '?';
     const L = live.log.slice().reverse();
     if (!L.length) return '<p class="hint">Hali harakat yo\'q.</p>';
-    return L.map(e => `<div class="lg ${e.k}"><i>${U.mmss(e.t)}</i>${e.k === 'out' ? `<b>${esc((ix.t[e.tid] || {}).tag || '?')}</b> yopildi · #${e.place}`
-      : e.k === 'knock' ? `${e.a ? nm(e.a) : 'Zona'} <b>N</b> ${nm(e.v)}` : `${e.a ? nm(e.a) : 'Zona'} <b>☠</b> ${nm(e.v)}`}</div>`).join('');
+    const line = e => e.k === 'out' ? `<b>${esc((ix.t[e.tid] || {}).tag || '?')}</b> yopildi · #${e.place}`
+      : e.k === 'rev' ? `<b>⤴</b> ${nm(e.v)} turg'izildi`
+      : e.k === 'knock' ? `${e.a ? nm(e.a) : 'Zona'} <b>N</b> ${nm(e.v)}` : `${e.a ? nm(e.a) : 'Zona'} <b>☠</b> ${nm(e.v)}`;
+    return L.map(e => {
+      const can = e.id && e.k !== 'out', open = can && ui.logEd === e.id;
+      const vt = ix.p[e.v] && ix.p[e.v].t;
+      const opts = open && e.k !== 'rev' ? `<option value="">Zona / hech kim</option>` + gridTeams().filter(t => !vt || t.id !== vt.id).map(t => `<optgroup label="${esc(t.tag)}">${t.players.map(p => `<option value="${p.id}" ${e.a === p.id ? 'selected' : ''}>${esc(t.tag)} · ${esc(p.name)}</option>`).join('')}</optgroup>`).join('') : '';
+      return `<div class="lg ${e.k} ${can ? 'ed' : ''} ${open ? 'open' : ''}" ${can ? `data-a="logEd" data-id="${e.id}"` : ''}><i>${U.mmss(e.t)}</i>${line(e)}${can ? '<s>✎</s>' : ''}</div>` +
+        (open ? `<div class="lged">${e.k !== 'rev' ? `<label>Kim ${e.k === 'kill' ? 'o\'ldirdi' : 'nok qildi'}?<select data-le="${e.id}">${opts}</select></label>` : ''}<div class="row"><button class="dng" data-a="logDel" data-id="${e.id}">🗑 O'chirish${e.k === 'kill' ? ' (o\'yinchi tiriladi)' : e.k === 'knock' ? ' (nok bekor)' : ''}</button><button data-a="logEd" data-id="">Yopish</button></div></div>` : '');
+    }).join('');
   }
   const sceneKey = sh => !sh.scene ? '' : sh.scene + (sh.scene === 'mvp1' ? ':' + ((sh.mvp || {}).scope || '') : sh.scene === 'info' ? ':' + ((sh.info || {}).kind || '') : '');
   /* ---------- music ---------- */
@@ -354,6 +418,9 @@
     <div class="box"><h3>Tomoshabinlar uchun jonli jadval</h3><p>Havola: <code>${esc(pub)}</code></p>
       <div class="row"><button data-a="copy" data-v="${esc(pub)}">Havolani nusxalash</button><a href="${esc(pub)}" target="_blank"><button>Ochish</button></a></div>
       <p class="hint">Telefonda ochiladi: umumiy reyting, jonli match va natijalar. Har 10 soniyada o'zi yangilanadi.</p></div></div>
+    <div class="cols"><div class="box"><h3>📱 Telefon / planshetdan kill kiritish</h3><p>Havola: <code>${esc(base + 'admin.html?' + (rq ? rq.slice(1) + '&' : '') + 'm=1')}</code></p>
+      <div class="row"><button data-a="copy" data-v="${esc(base + 'admin.html?' + (rq ? rq.slice(1) + '&' : '') + 'm=1')}">Havolani nusxalash</button></div>
+      <p class="hint">Faqat kill / nok / turg'izish uchun katta tugmali sahifa. Ikkinchi admin telefondan shu havola bilan kirib kill yozadi, siz kompyuterda banner va sahnalarni boshqarasiz. Oddiy havola avvalgidek to'liq panelni ochadi.</p></div></div>
     <div class="cols">${Store.mode === 'supabase' ? `<div class="box"><h3>Bu turnir adminlari</h3><p class="hint">Ular faqat shu turnirni ko'radi va boshqaradi, bir vaqtda birga ishlashi mumkin. ${ME && ME.owner ? 'Yangi admin emailini qo\'shing — u admin sahifasida o\'sha email bilan ro\'yxatdan o\'tadi.' : 'Admin qo\'shish va o\'chirishni turnir egasi qiladi.'}</p>
       ${ui.admins === null ? '<p class="hint">Yuklanmoqda…</p>' : ui.admins.map(e => `<div class="row"><code style="flex:1">${esc(e)}</code>${ME && ME.owner ? `<button class="dng" data-a="delAdmin" data-v="${esc(e)}">✕</button>` : ''}</div>`).join('') || '<p class="hint">Hali admin qo\'shilmagan — hozircha faqat egasi boshqaradi.</p>'}
       ${ME && ME.owner ? `<div class="row"><input type="email" data-u="newAdmin" placeholder="admin@email.com" value="${esc(ui.newAdmin)}"><button class="pri" data-a="addAdmin">Qo'shish</button></div>` : ''}</div>` : ''}
@@ -374,9 +441,13 @@
     $('#undo').disabled = !undo.length;
     const m = $('#main');
     if (tab === 'live') {
-      if (!$('#grid')) m.innerHTML = `<div class="live"><div><div id="bar"><div id="atk"></div><input id="filter" placeholder="Qidirish: jamoa yoki o'yinchi…" value="${esc(filter)}"></div><div id="grid"></div></div><aside id="side"></aside></div>`;
+      if (!$('#grid')) m.innerHTML = MOB
+        ? `<div class="live"><div><div id="bar"><div id="atk"></div><div id="rec"></div><input id="filter" placeholder="Qidirish: jamoa yoki o'yinchi…" value="${esc(filter)}"></div><div id="grid"></div><div class="box"><h3>Oxirgi harakatlar <small>(bosib tuzating)</small></h3><div class="log" id="mlog"></div></div><p class="hint" style="text-align:center"><a href="${esc(location.pathname + '?' + (() => { const q = new URLSearchParams(location.search); q.set('m', '0'); return q; })())}">💻 To'liq panelni ochish</a></p></div></div>`
+        : `<div class="live"><div><div id="bar"><div id="atk"></div><input id="filter" placeholder="Qidirish: jamoa yoki o'yinchi…" value="${esc(filter)}"></div><div id="rec"></div><div id="grid"></div></div><aside id="side"></aside></div>`;
       $('#grid').innerHTML = gridHtml();
       $('#atk').innerHTML = atkHtml(); $('#atk').classList.toggle('has', !!(sel && ix.p[sel]));
+      $('#rec').innerHTML = recHtml();
+      if (MOB) { const a = document.activeElement; if (!(a && a.closest && a.closest('#mlog'))) $('#mlog').innerHTML = logHtml(); return; }
       // focus is "nowhere" while it moves from one field to another (the old one's change event): wait until it has landed
       const a = document.activeElement;
       if (!a || a === document.body) { clearTimeout(sideT); sideT = setTimeout(() => tab === 'live' && $('#side') && renderSide(), 0); }
@@ -506,6 +577,10 @@
     km(d) { const id = d.id; act(() => { const p = P(id); p.k = Math.max(0, (p.k || 0) - 1); }); },
     knock(d) { knock(d.id); },
     kill(d) { kill(d.id); },
+    wipe(d) { const t = ix.t[d.id]; if (t && confirm(`${t.tag} jamoasi to'liq yopilsinmi? (zona yoki o'yindan chiqib ketdi — kill hech kimga yozilmaydi)`)) wipe(d.id); },
+    keepAtk() { keepAtk = !keepAtk; try { localStorage.setItem('pgo:pref:keepAtk', keepAtk ? '1' : '0'); } catch (e) { /* private mode */ } render(); },
+    logEd(d) { ui.logEd = ui.logEd === d.id ? '' : d.id; render(); },
+    logDel(d) { const id = d.id; ui.logEd = ''; logDel(id); },
     show(d) { const k = d.v; act(() => { live.show[k] = !live.show[k]; }); },
     scene(d) {
       const v = d.v || null, o = { scene: v };
@@ -689,6 +764,7 @@
     else if (d.place) { const id = d.place, v = +el.value; act(() => { const r = live.teams[id] || (live.teams[id] = {}); if (v > 0) { r.place = v; r.m = 1; } else { delete r.place; delete r.m; } }); }
     else if (d.mu === 'vol') { const v = +el.value; act(() => { live.show.music = Object.assign({}, live.show.music, { vol: v }); }); }
     else if (d.cam) saveCam(d.cam, el.value);
+    else if (d.le) { const id = d.le, na = el.value || null; ui.logEd = ''; el.blur(); logFix(id, na); }
     else if (d.mm) { cfg.musicMap[d.mm] = el.value; saveCfg(); render(); }
     else if (d.dmg) { const id = d.dmg, v = +el.value || 0; act(() => { P(id).dmg = v; }); }
     else if (d.g) {
@@ -778,7 +854,7 @@
         <p class="hint">Har bir turnirning jamoalari, natijalari, OBS havolasi va jadval sahifasi alohida — boshqa turnirlar bilan aralashmaydi.</p></div>` : ''}
       ${!list.length ? `<div class="box"><p>${ME.owner ? 'Hali turnir yo\'q — yuqorida yangisini oching.' : 'Sizga hali turnir biriktirilmagan. Asosiy admin sizning emailingizni (<b>' + esc(ME.email) + '</b>) turnirga qo\'shishi kerak, keyin sahifani yangilang.'}</p></div>` : ''}
       <div class="rooms">${list.map((r, i) => `<div class="box room"><div class="rhd"><b>${esc(r.name)}</b><code>${esc(r.room)}</code></div>
-        <div class="row"><a class="btn pri" href="admin.html?room=${encodeURIComponent(r.room)}">Boshqarish →</a>
+        <div class="row"><a class="btn pri" href="admin.html?room=${encodeURIComponent(r.room)}${QS.has('m') ? '&m=' + encodeURIComponent(QS.get('m')) : ''}">Boshqarish →</a>
           <button data-a="copy" data-v="${esc(base + 'overlay.html?room=' + encodeURIComponent(r.room))}">OBS havolasi</button>
           <button data-a="copy" data-v="${esc(base + 'table.html?room=' + encodeURIComponent(r.room))}">Jadval havolasi</button></div>
         ${ME.owner ? `<h3>Adminlar</h3>${members[i].map(e => `<div class="row"><code style="flex:1">${esc(e)}</code><button class="dng" data-a="roomDelAdmin" data-r="${esc(r.room)}" data-v="${esc(e)}">✕</button></div>`).join('') || '<p class="hint">Admin yo\'q — faqat siz boshqarasiz.</p>'}

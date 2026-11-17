@@ -211,3 +211,49 @@ body.picking #tabs, body.picking #clock, body.picking #undo, body.picking #who {
 .mmap .hint { grid-column: 1 / -1; margin: 2px 0 0; }
 .g4 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .mmap label, .mmap select { min-width: 0; width: 100%; }
+
+/* ---------- faster kill entry: recent attackers, team wipe, log editor ---------- */
+#rec { height: 38px; display: flex; align-items: center; gap: 6px; overflow: hidden; white-space: nowrap; margin: -2px 0 8px; }
+#rec .hint { margin: 0; flex: none; }
+#rec .chip { flex: none; padding: 5px 10px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+#rec .chip b { color: var(--acc); margin-left: 4px; }
+#rec .chip.on { background: #fff; color: #000; border-color: #fff; }
+#rec .keep { margin-left: auto; flex: none; padding: 5px 10px; border-radius: 20px; font-size: 12px; color: var(--mu); }
+#rec .keep.on { color: var(--ok); background: rgba(46, 204, 113, .1); border-color: rgba(46, 204, 113, .5); }
+.tc .hd .wipe { padding: 2px 7px; font-size: 11px; color: var(--bad); background: transparent; border-color: rgba(255, 255, 255, .1); }
+.tc .hd .wipe:hover { background: var(--bad); color: #fff; }
+.lg.ed { cursor: pointer; position: relative; padding-right: 20px; border-radius: 5px; }
+.lg.ed:hover, .lg.open { background: var(--p3); }
+.lg s { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); text-decoration: none; color: var(--mu); font-size: 12px; opacity: 0; }
+.lg.ed:hover s, .lg.open s { opacity: 1; }
+.lg.rev b { color: var(--ok); }
+.lged { background: #090d12; border-radius: 8px; padding: 8px; margin: 2px 0 6px; }
+.lged label { font-size: 12px; }
+.lged select { width: 100%; }
+.lged .row { margin: 6px 0 0; }
+
+/* ---------- phone mode (admin.html?m=1 or a narrow screen): big buttons, kills only ---------- */
+body.mob header { position: static; }
+body.mob #tabs, body.mob #obs, body.mob #who { display: none; }
+body.mob #undo { padding: 10px 14px; font-size: 15px; }
+body.mob main { padding: 8px; }
+body.mob .live { display: block; }
+body.mob #bar { position: sticky; top: 0; display: block; padding: 6px 0; }
+body.mob #atk { height: 54px; }
+body.mob #atk > .hint { font-size: 12px; white-space: normal; line-height: 1.25; }
+body.mob #atk .kbd { display: none; }
+body.mob #rec { margin: 6px 0; overflow-x: auto; height: 44px; scrollbar-width: none; }
+body.mob #rec .chip, body.mob #rec .keep { padding: 9px 12px; font-size: 14px; }
+body.mob #grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+body.mob .tc.out .pr { display: none; }
+body.mob .tc .hd { padding: 9px 10px; font-size: 16px; }
+body.mob .tc .hd .wipe { padding: 8px 10px; font-size: 13px; }
+body.mob .pr { grid-template-columns: minmax(0, 1fr) 40px 26px 40px 56px 56px; gap: 5px; padding: 4px 6px; }
+body.mob .pr button { height: 50px; font-size: 17px; }
+body.mob .pr .nm { font-size: 17px; }
+body.mob .pr .bk, body.mob .pr .bd { font-size: 20px; }
+body.mob .lg { padding-top: 7px; padding-bottom: 7px; font-size: 14px; }
+body.mob .lg s { opacity: 1; }
+body.mob .lged select, body.mob .lged button { min-height: 44px; font-size: 15px; }
+body.mob .log { max-height: none; }
+body.mob #filter { width: 100%; box-sizing: border-box; }
