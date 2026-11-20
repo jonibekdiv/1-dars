@@ -128,13 +128,13 @@
   }
 
   /* ---------- kill / knock logic ---------- */
-  function die(pid, credit) {
+  function die(pid, credit, cascade) {
     const v = P(pid), knocker = v.by;
     v.st = 'd'; v.dt = elapsed(); delete v.by;
     log({ k: 'kill', a: credit && ix.p[credit] ? credit : null, v: pid });
     if (!credit || !ix.p[credit]) return;
     const A = P(credit), at = teamOf(credit);
-    A.k++; lastKillTeam = at.id;
+    A.k++; if (!cascade) lastKillTeam = at.id;                      // a team is closed by whoever fired the LAST shot, not by an older knock
     const totalKills = Object.values(live.players).reduce((s, p) => s + (p.k || 0), 0);
     const teamKills = at.players.reduce((s, p) => s + (P(p.id).k || 0), 0);
     if (cfg.auto.firstBlood && totalKills === 1) banner({ type: 'firstblood', pid: credit });
@@ -145,7 +145,7 @@
   /* PUBG rule: when nobody on a team is standing, knocked players die at once (kill goes to who knocked them) */
   function wipeCheck(t) {
     if (t.players.some(p => P(p.id).st === 'a')) return;
-    t.players.forEach(p => { const s = P(p.id); if (s.st === 'k') die(p.id, s.by); });
+    t.players.forEach(p => { const s = P(p.id); if (s.st === 'k') die(p.id, s.by, true); });
   }
   const attackerFor = (atk, vt) => (atk && teamOf(atk) && teamOf(atk).id !== vt.id) ? atk : null;
   function knock(pid) {
@@ -159,6 +159,7 @@
       const a = attackerFor(atk, vt);
       if (a) { v.by = a; P(a).kn++; } else delete v.by;
       log({ k: 'knock', a, v: pid });
+      lastKillTeam = a ? teamOf(a).id : null;
       wipeCheck(vt);
     });
     dropAtk(atk);
@@ -174,26 +175,37 @@
     });
     dropAtk(atk);
   }
-  /* an event read from the screen (attacker -> victim): knock or kill follows from the game rules —
-     a victim standing with a teammate still up is knocked; a knocked victim, or the last one up, is killed */
+  /* An event read from the screen: attacker -> victim, or a victim alone (zone, fall, …: a = null).
+     Knock or kill follows from the game rules, not from the icon:
+       - victim already knocked  -> killed; the kill goes to who finished him, and when nobody did
+         (the zone finished him / he bled out) to who knocked him
+       - victim standing, a teammate still up -> knocked (by the attacker, or by the zone: nobody)
+       - victim standing and alone (last one) -> killed outright
+     Weapon, vehicle, grenade, fire, knife: all the same, only the names matter. */
+  function autoKind(a, v) {
+    if (!ix.p[v]) return null;
+    if (a && (!ix.p[a] || teamOf(a).id === teamOf(v).id)) return null;
+    const vs = P(v).st, vt = teamOf(v); if (vs === 'd') return null;
+    return vs === 'k' || !vt.players.some(p => p.id !== v && P(p.id).st === 'a') ? 'kill' : 'knock';
+  }
   function autoEvent(a, v) {
-    if (!ix.p[a] || !ix.p[v] || teamOf(a).id === teamOf(v).id) return null;
-    const vs = P(v).st; if (vs === 'd') return null;
-    const vt = teamOf(v), kind = vs === 'k' || !vt.players.some(p => p.id !== v && P(p.id).st === 'a') ? 'kill' : 'knock';
+    const kind = autoKind(a, v); if (!kind) return null;
+    const vt = teamOf(v);
     act(() => {
       const x = P(v); if (!live.startedAt) live.startedAt = Date.now();
       if (x.st === 'd') return;
-      if (x.st === 'k' || kind === 'kill') die(v, a);
-      else { x.st = 'k'; x.by = a; P(a).kn++; log({ k: 'knock', a, v }); }
+      if (x.st === 'k' || kind === 'kill') {
+        const credit = a || x.by || null;
+        die(v, credit);                                              // sets "closed by" to the credited team
+        if (!credit) lastKillTeam = null;
+      } else {
+        x.st = 'k'; if (a) { x.by = a; P(a).kn++; } else delete x.by;
+        log({ k: 'knock', a: a || null, v });
+        lastKillTeam = a ? teamOf(a).id : null;
+      }
       wipeCheck(vt);
     });
     return kind;
-  }
-  /* what autoEvent would do now (for the confirmation list) */
-  function autoKind(a, v) {
-    if (!ix.p[a] || !ix.p[v] || teamOf(a).id === teamOf(v).id) return null;
-    const vs = P(v).st, vt = teamOf(v); if (vs === 'd') return null;
-    return vs === 'k' || !vt.players.some(p => p.id !== v && P(p.id).st === 'a') ? 'kill' : 'knock';
   }
   window.AdminAPI = {
     roster: () => gridTeams().flatMap(t => t.players.map(p => ({ pid: p.id, tid: t.id, tag: t.tag, name: p.name, nick: p.nick || '', st: (live.players[p.id] || {}).st || 'a' }))),

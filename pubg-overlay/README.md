@@ -60,12 +60,17 @@ Misol: `011 A 032 K` — 1-jamoaning 1-o'yinchisi 3-jamoaning 2-o'yinchisini o'l
 
 ### 🤖 Avto-kill (ekrandan o'qish)
 Jonli bo'limning o'ng tomonida. O'yinga tegmaydi: faqat ekrandagi kill yozuvlarini o'qiydi (OCR).
-1. **🖥 Ekranni ulash** — observer o'yini oynasini yoki OBS proyektorini tanlang (Chrome/Edge).
+1. **🖥 Ekranni ulash** — observer o'yini oynasini yoki OBS proyektorini tanlang (Chrome/Edge, kompyuterda). iPhone/Safari ekran ulashni qo'llamaydi: telefon ekrani avval kompyuterga olib o'tiladi (AirPlay dasturi, Mac'da kabel + QuickTime/OBS yoki Lightning–HDMI + capture card).
 2. **▭ Joyni belgilash** — kill yozuvlari chiqadigan joyni sichqoncha bilan belgilang (bir marta, eslab qolinadi).
 3. Rejim: **✋ Tasdiqlab** — har bir yozuv taklif bo'lib chiqadi, ✔ bilan tasdiqlaysiz; **⚡ To'liq avto** — o'zi yozadi.
 - Nok yoki kill o'yin qoidasidan aniqlanadi: sherigi tik turgan bo'lsa — nok; nokdagi yoki oxirgi tik turgan — kill.
 - Ismlar jamoalar ro'yxatidagi o'yinchilarga solishtiriladi (o'xshash harflar: $→S, 6→G, 7→T, kirillcha harflar hisobga olinadi). O'yinchi ismlarini o'yindagi nik bilan bir xil yozing.
-- Faqat bitta ism o'qilgan yozuv (zona, yiqilish) avtomatik yozilmaydi — tasdiqlash rejimida "?" bilan chiqadi.
+- **Kill o'g'irlash:** nok qilgan va tugatgan o'yinchi boshqa bo'lsa, nok birinchisida qoladi, kill tugatganga yoziladi ("elim stealer" banneri chiqadi).
+- **Zona:** qurbon ismi yolg'iz turgan qator = zona. Qurbon tik turgan bo'lsa zona nok qiladi (hech kimga yozilmaydi); nokdagini zona tugatsa, kill uni nok qilgan o'yinchiga yoziladi. Zona nok qilib, o'yinchi tugatsa — kill o'sha o'yinchiga.
+- **Jamoa yopilishi:** 4 o'yinchi ham o'lsa jamoa yopiladi va banner "oxirgi o'q otgan jamoa yopdi" deydi. Oxirgi o'yinchi sherigi hammasi nokda bo'lsa, nok bo'lmay darhol o'ladi. Unga hamma nokdagi sheriklari birga o'ladi, ularning killi ularni nok qilganlarga yoziladi. Faqat zona yopgan bo'lsa, jamoa nomi yozilmaydi.
+- Qurol, mashina, granata, olov (molotov), pichoq: farqi yo'q, faqat ikkita ism kerak.
+- Qator toza bo'lmasa (ism yoniga o'qilgan boshqa so'z chiqib qolsa) zona yozuvi avtomatik yozilmaydi, "Zona / ?" deb tasdiqlash ro'yxatiga tushadi.
+- O'yinchi ismi kamida 3 belgi bo'lsin (1–2 belgi belgi/qurol shovqinidan farqlanmaydi); qisqa nik bo'lsa jamoa tegini qo'shib yozing.
 - Xato bo'lsa "Oxirgi harakatlar"dan bosib tuzating.
 
 ### Kill / nok tez kiritish

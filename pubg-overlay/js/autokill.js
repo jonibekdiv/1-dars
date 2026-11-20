@@ -28,16 +28,18 @@ const AutoKill = (() => {
   const sim = (a, b) => !a || !b ? 0 : 1 - lev(a, b) / Math.max(a.length, b.length);
   let keys = [];                                                    // [{pid, tid, k:[normalized forms]}]
   function buildKeys() {
-    keys = AdminAPI.roster().map(r => ({ pid: r.pid, tid: r.tid, k: [norm(r.tag + r.name), norm(r.name + r.tag), norm(r.name), r.nick && norm(r.nick), r.nick && norm(r.tag + r.nick)].filter(x => x && x.length >= 2) }));
+    keys = AdminAPI.roster().map(r => ({ pid: r.pid, tid: r.tid, k: [norm(r.tag + r.name), norm(r.name + r.tag), norm(r.name), r.nick && norm(r.nick), r.nick && norm(r.tag + r.nick)].filter(x => x && x.length >= 3) }));
   }
   function best(text) {
-    const t = norm(text); if (t.length < 2) return null;
+    const t = norm(text); if (t.length < 3) return null;                 // 1-2 characters are icon / weapon noise, never a name
     let b = null;
     for (const r of keys) for (const k of r.k) { const s = sim(t, k); if (!b || s > b.s) b = { pid: r.pid, tid: r.tid, s }; }
     return b;
   }
   const T = .66;                                                    // how similar each name must be (a pair also needs a high total)
-  /* one feed line -> {a, v} (attacker may be null when only one name could be read) */
+  /* one feed line -> {a, v}            attacker -> victim (weapon, car, grenade, fire, knife: only names matter)
+                    -> {a:null, v, one}  a victim alone (zone, fall…); `clean` = nothing else readable is on the line,
+                                         otherwise the attacker's name was probably just misread, so it is only suggested */
   function parse(line) {
     const w = line.split(/\s+/).filter(x => norm(x).length);
     if (!w.length) return null;
@@ -51,8 +53,12 @@ const AutoKill = (() => {
       const sc = A.m.s + V.m.s; if (sc >= 1.5 && (!pair || sc > pair.sc)) pair = { sc, a: A.m.pid, v: V.m.pid };
     }
     if (pair) return pair;
-    const one = spans.sort((x, y) => y.m.s - x.m.s)[0];
-    return one && one.m.s >= .85 ? { a: null, v: one.m.pid, one: true } : null;
+    const one = spans.slice().sort((x, y) => y.m.s - x.m.s)[0];
+    if (!one || one.m.s < .85) return null;
+    const used = new Array(w.length).fill(false);
+    spans.forEach(sp => { for (let k = sp.i; k < sp.j; k++) used[k] = true; });
+    const rest = w.reduce((n, t, k) => n + (used[k] ? 0 : norm(t).length), 0);
+    return { a: null, v: one.m.pid, one: true, clean: rest <= 2 };
   }
 
   /* ---------- picture -> text ---------- */
@@ -99,7 +105,11 @@ const AutoKill = (() => {
       if (kind) st.recent.unshift({ t: Date.now(), txt: `${lbl(e.a)} ${kind === 'kill' ? '☠' : 'N'} ${lbl(e.v)}` });
       st.recent = st.recent.slice(0, 5); return;
     }
-    if (!e.a && st.mode === 'auto') return;                          // one name only: never guessed automatically
+    if (st.mode === 'auto' && !e.a && e.clean) {                      // zone / fall: nobody to credit (a knocked victim goes to who knocked him)
+      const kind = AdminAPI.event(null, e.v);
+      if (kind) { st.recent.unshift({ t: Date.now(), txt: `Zona ${kind === 'kill' ? '☠' : 'N'} ${lbl(e.v)}` }); st.recent = st.recent.slice(0, 5); }
+      return;
+    }
     if (st.pend.some(p => p.a === e.a && p.v === e.v)) return;
     st.pend.push({ id: U.uid(), a: e.a, v: e.v, t: Date.now() }); st.pend = st.pend.slice(-8);
     AdminAPI.render();
@@ -178,8 +188,8 @@ const AutoKill = (() => {
   function html() {
     const lbl = AdminAPI.label;
     const pend = st.pend.map(p => {
-      const kind = p.a ? AdminAPI.kind(p.a, p.v) : null;
-      return `<div class="akp"><span>${p.a ? esc(lbl(p.a)) : '<i>?</i>'} <b class="${kind === 'kill' ? 'k' : 'n'}">${p.a ? (kind === 'kill' ? '☠' : kind === 'knock' ? 'N' : '–') : '?'}</b> ${esc(lbl(p.v))}</span>${p.a && kind ? `<button class="pri" data-ak="ok" data-id="${p.id}">✔</button>` : ''}<button data-ak="no" data-id="${p.id}">✕</button></div>`;
+      const kind = AdminAPI.kind(p.a, p.v);
+      return `<div class="akp"><span>${p.a ? esc(lbl(p.a)) : '<i>Zona / ?</i>'} <b class="${kind === 'kill' ? 'k' : 'n'}">${kind === 'kill' ? '☠' : kind === 'knock' ? 'N' : '–'}</b> ${esc(lbl(p.v))}</span>${kind ? `<button class="pri" data-ak="ok" data-id="${p.id}">✔</button>` : ''}<button data-ak="no" data-id="${p.id}">✕</button></div>`;
     }).join('');
     return `<div class="box ak"><h3>🤖 Avto-kill (ekrandan o'qish)</h3>
       <div class="row">${st.on ? '<button data-ak="stop">⏹ To\'xtatish</button>' : '<button class="pri" data-ak="start" style="flex:1">🖥 Ekranni ulash</button>'}<button data-ak="area" ${st.on ? '' : 'disabled'}>▭ Joyni belgilash</button></div>
@@ -198,7 +208,7 @@ const AutoKill = (() => {
     else if (k === 'area') pickArea();
     else if (k === 'mode') { st.mode = b.dataset.v; put('mode', st.mode); AdminAPI.render(); }
     else if (k === 'ok' || k === 'no') { const p = st.pend.find(x => x.id === id); st.pend = st.pend.filter(x => x.id !== id); if (k === 'ok' && p) AdminAPI.event(p.a, p.v); AdminAPI.render(); }
-    else if (k === 'okAll') { const l = st.pend; st.pend = []; l.forEach(p => p.a && AdminAPI.event(p.a, p.v)); AdminAPI.render(); }
+    else if (k === 'okAll') { const l = st.pend; st.pend = []; l.forEach(p => AdminAPI.event(p.a, p.v)); AdminAPI.render(); }
     else if (k === 'noAll') { st.pend = []; AdminAPI.render(); }
   });
   return { html, _parse: line => { buildKeys(); return parse(line); }, _norm: norm };
