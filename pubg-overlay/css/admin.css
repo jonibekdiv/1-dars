@@ -257,3 +257,18 @@ body.mob .lg s { opacity: 1; }
 body.mob .lged select, body.mob .lged button { min-height: 44px; font-size: 15px; }
 body.mob .log { max-height: none; }
 body.mob #filter { width: 100%; box-sizing: border-box; }
+
+/* ---------- auto kills (screen reading) ---------- */
+.ak .row { margin-bottom: 6px; }
+.akprev { display: block; width: 100%; max-height: 90px; object-fit: contain; object-position: left; background: #fff; border-radius: 6px; margin: 4px 0; }
+.akl { margin: 6px 0; }
+.akp { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, .05); font-size: 13px; }
+.akp span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.akp b.k { color: var(--bad); } .akp b.n { color: var(--warn); }
+.akp button { padding: 4px 10px; }
+.ak .bad { color: #ff8a8a; }
+.akpick { position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 0, .8); display: grid; place-items: center; padding: 20px; }
+.akpick .in { background: var(--p); border-radius: 12px; padding: 14px; max-width: 1100px; width: 100%; }
+.akpick .pic { position: relative; cursor: crosshair; user-select: none; touch-action: none; }
+.akpick .pic img { width: 100%; display: block; pointer-events: none; }
+.akpick .sel { position: absolute; border: 2px solid #4da3ff; background: rgba(77, 163, 255, .18); }

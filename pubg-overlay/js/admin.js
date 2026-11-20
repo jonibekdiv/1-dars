@@ -174,6 +174,32 @@
     });
     dropAtk(atk);
   }
+  /* an event read from the screen (attacker -> victim): knock or kill follows from the game rules —
+     a victim standing with a teammate still up is knocked; a knocked victim, or the last one up, is killed */
+  function autoEvent(a, v) {
+    if (!ix.p[a] || !ix.p[v] || teamOf(a).id === teamOf(v).id) return null;
+    const vs = P(v).st; if (vs === 'd') return null;
+    const vt = teamOf(v), kind = vs === 'k' || !vt.players.some(p => p.id !== v && P(p.id).st === 'a') ? 'kill' : 'knock';
+    act(() => {
+      const x = P(v); if (!live.startedAt) live.startedAt = Date.now();
+      if (x.st === 'd') return;
+      if (x.st === 'k' || kind === 'kill') die(v, a);
+      else { x.st = 'k'; x.by = a; P(a).kn++; log({ k: 'knock', a, v }); }
+      wipeCheck(vt);
+    });
+    return kind;
+  }
+  /* what autoEvent would do now (for the confirmation list) */
+  function autoKind(a, v) {
+    if (!ix.p[a] || !ix.p[v] || teamOf(a).id === teamOf(v).id) return null;
+    const vs = P(v).st, vt = teamOf(v); if (vs === 'd') return null;
+    return vs === 'k' || !vt.players.some(p => p.id !== v && P(p.id).st === 'a') ? 'kill' : 'knock';
+  }
+  window.AdminAPI = {
+    roster: () => gridTeams().flatMap(t => t.players.map(p => ({ pid: p.id, tid: t.id, tag: t.tag, name: p.name, nick: p.nick || '', st: (live.players[p.id] || {}).st || 'a' }))),
+    label: pid => ix.p[pid] ? ix.p[pid].t.tag + ' · ' + ix.p[pid].p.name : '?',
+    kind: autoKind, event: autoEvent, render: () => render(), room: () => Store.room
+  };
   /* back to alive: the killer loses that kill and the log line goes (used by ☠ on a dead player and by the log editor) */
   function unkill(pid, entryId) {
     const v = P(pid);
@@ -319,7 +345,7 @@
     const winner = cfg.teams.find(t => (live.teams[t.id] || {}).place === 1);
     const tid = ui.team || (winner && winner.id) || (se && se.t.id) || '';
     const opts = v => gridTeams().map(t => `<option value="${t.id}" ${t.id === v ? 'selected' : ''}>${esc(t.tag)} — ${esc(t.name)}</option>`).join('');
-    return `<div class="box"><h3>Ekranda ko'rsatish</h3><div class="g2">${tg('ranking', 'Reyting')}${tg('lower', 'Pastki banner')}${tg('wwcd', 'Final jamoalar')}${tg('sound', sh.sound ? '🔊 Ovoz yoqilgan' : '🔇 Ovoz o\'chiq')}</div></div>
+    return `${typeof AutoKill !== 'undefined' && !MOB ? AutoKill.html() : ''}<div class="box"><h3>Ekranda ko'rsatish</h3><div class="g2">${tg('ranking', 'Reyting')}${tg('lower', 'Pastki banner')}${tg('wwcd', 'Final jamoalar')}${tg('sound', sh.sound ? '🔊 Ovoz yoqilgan' : '🔇 Ovoz o\'chiq')}</div></div>
     ${musicHtml()}
     ${camHtml()}
     <div class="box"><h3>Zona</h3><div class="row"><input type="number" data-u="zone" value="${ui.zone}" style="max-width:80px"><span>sek</span><button class="pri" data-a="zone">Boshlash</button><button data-a="zoneOff">To'xtatish</button></div>

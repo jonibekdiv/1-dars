@@ -58,6 +58,16 @@ Misol: `011 A 032 K` — 1-jamoaning 1-o'yinchisi 3-jamoaning 2-o'yinchisini o'l
 | Tez orada, Keyingi match, Tanaffus | Sanoq taymeri (daqiqa) bilan tanaffus ekrani |
 | 🔊 Ovoz | Banner va sahnalarda qisqa ovoz effekti (OBS'da "Control audio via OBS" ni belgilang) |
 
+### 🤖 Avto-kill (ekrandan o'qish)
+Jonli bo'limning o'ng tomonida. O'yinga tegmaydi: faqat ekrandagi kill yozuvlarini o'qiydi (OCR).
+1. **🖥 Ekranni ulash** — observer o'yini oynasini yoki OBS proyektorini tanlang (Chrome/Edge).
+2. **▭ Joyni belgilash** — kill yozuvlari chiqadigan joyni sichqoncha bilan belgilang (bir marta, eslab qolinadi).
+3. Rejim: **✋ Tasdiqlab** — har bir yozuv taklif bo'lib chiqadi, ✔ bilan tasdiqlaysiz; **⚡ To'liq avto** — o'zi yozadi.
+- Nok yoki kill o'yin qoidasidan aniqlanadi: sherigi tik turgan bo'lsa — nok; nokdagi yoki oxirgi tik turgan — kill.
+- Ismlar jamoalar ro'yxatidagi o'yinchilarga solishtiriladi (o'xshash harflar: $→S, 6→G, 7→T, kirillcha harflar hisobga olinadi). O'yinchi ismlarini o'yindagi nik bilan bir xil yozing.
+- Faqat bitta ism o'qilgan yozuv (zona, yiqilish) avtomatik yozilmaydi — tasdiqlash rejimida "?" bilan chiqadi.
+- Xato bo'lsa "Oxirgi harakatlar"dan bosib tuzating.
+
 ### Kill / nok tez kiritish
 - **📌 Hujumchi qoladi**: hujumchi kill'dan keyin ham tanlangan turadi, ketma-ket killarni bosaverasiz (Esc — tozalash). O'chirilsa, har kill'dan keyin o'zi tozalanadi. Har bir admin uchun alohida eslab qolinadi.
 - **Oxirgi hujumchilar**: qidirish satri ostida oxirgi 5 ta hujumchi turadi, bir bosishda tanlanadi.
