@@ -11,9 +11,11 @@
   const rows = {}; let prevElims = {};
 
   if (q.has('preview')) document.body.classList.add('preview');
+  /* the 1920x1080 picture is scaled to fit the browser source and centred, so a source of another
+     shape (1920x1200, 1280x1024 …) still shows everything instead of sticking to the top-left corner */
   function fit() {
     const s = Math.min(innerWidth / 1920, innerHeight / 1080);
-    $('stage').style.transform = `scale(${s})`;
+    $('stage').style.transform = `translate(${(innerWidth - 1920 * s) / 2}px, ${(innerHeight - 1080 * s) / 2}px) scale(${s})`;
   }
   addEventListener('resize', fit); fit();
 
@@ -53,6 +55,7 @@
     st.setProperty('--acc-d', mix(.62)); st.setProperty('--acc-dd', mix(.3)); st.setProperty('--acc-k', mix(.16));
     st.setProperty('--acc-a', `rgba(${r},${g},${b},.3)`); st.setProperty('--acc-a2', `rgba(${r},${g},${b},.14)`);
     st.setProperty('--l1', lite(.28)); st.setProperty('--l2', mix(1)); st.setProperty('--l3', mix(.5));
+    st.setProperty('--rank-top', (cfg.layout ? cfg.layout.rankTop : 270) + 'px');
   }
 
   /* ---------- sound effects (only when the admin switched them on) ---------- */
@@ -98,7 +101,12 @@
     const lead = list[0], rest = list.slice(1), MP = U.matchPoint(cfg, H());
     setHtml(el.querySelector('.rk-lead'),
       drips('lead' + lead.t.id, 4) + `<div class="bdg">#1${MP.mp[lead.t.id] ? ' · MP' : ''}</div>${logo(lead.t)}<div class="inf"><div class="tg">${flag(lead.t)}<span>${esc(lead.t.tag)}</span></div>${pips(lead.pl)}</div><div class="el"><b>${lead.elims}</b><small>ELIMS</small></div>`);
-    const rh = Math.max(18, Math.min(34, Math.floor((rest.length > 18 ? 600 : 690) / Math.max(1, rest.length))));   // many teams: stay clear of the bottom edge
+    // row height: as tall as fits between the chosen top and the bottom edge (the leader card, header and legend take ~175px)
+    let top = cfg.layout ? cfg.layout.rankTop : 270;
+    const cam = live.show.cam;                                      // a camera frame in the top-right corner pushes the ranking below it
+    if (cam && cam.on && cam.pos === 'tr') top = Math.max(top, (CAM[cam.size] || CAM.m)[1] + 110);
+    document.documentElement.style.setProperty('--rank-top', top + 'px');
+    const rh = Math.max(16, Math.min(34, Math.floor((1050 - top - 175) / Math.max(1, rest.length))));
     el.style.setProperty('--rh', rh + 'px'); el.classList.toggle('many', rest.length > 18);
     const box = el.querySelector('.rk-rows');
     box.style.height = rest.length * rh + 'px';

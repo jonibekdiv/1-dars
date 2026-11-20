@@ -14,6 +14,7 @@ const U = {
       points: { place: [10, 6, 5, 4, 3, 2, 1, 1], kill: 1 },
       matchPoint: { on: false, target: 60 },
       brand: { pos: 'tr', size: 'm', name: true },
+      layout: { rankTop: 270 },
       auto: { teamElim: true, stealer: true, firstBlood: true, rampage: 4, domination: 7 },
       zoneShowAt: 10
     };
@@ -25,6 +26,8 @@ const U = {
     c.auto = Object.assign(U.defConfig().auto, c.auto);
     c.matchPoint = Object.assign({ on: false, target: 60 }, c.matchPoint);
     c.brand = Object.assign({ pos: 'tr', size: 'm', name: true }, c.brand);
+    c.layout = Object.assign({ rankTop: 270 }, c.layout);                  // ranking: distance from the top of the 1920x1080 picture
+    c.layout.rankTop = Math.max(100, Math.min(520, +c.layout.rankTop || 270));
     c.teams = c.teams || []; c.sponsors = c.sponsors || [];
     c.music = Array.isArray(c.music) ? c.music : [];               // playlist: [{id, name, url}]
     c.musicMap = Object.assign({}, U.DEF_MUSIC_MAP, c.musicMap);     // scene -> track that starts by itself

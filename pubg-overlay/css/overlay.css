@@ -39,7 +39,7 @@ img { display: block; object-fit: contain; }
 @keyframes blink { to { opacity: .4; } }
 
 /* ---------- Live ranking (right) ---------- */
-#rank { right: 34px; top: 190px; width: 270px; filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .45)); }
+#rank { right: 34px; top: var(--rank-top, 270px); width: 270px; filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .45)); }
 #rank.hide { transform: translateX(70px); }
 .rk-lead {
   height: 104px; display: grid; grid-template-columns: 96px 1fr auto; align-items: center; position: relative; overflow: hidden;
@@ -529,7 +529,6 @@ img { display: block; object-fit: contain; }
 
 /* room for two-digit ranks (#17…) */
 .sc.plate .tr { grid-template-columns: 26px 76px 40px 46px 1fr 58px 100px 74px 104px; }
-#rank.many { top: 150px; }
 
 /* default characters are cut-outs: show them whole, standing on the bottom edge */
 img.def { object-fit: contain !important; object-position: 50% 100% !important; }
@@ -569,4 +568,3 @@ img.def { object-fit: contain !important; object-position: 50% 100% !important; 
 /* keep the other widgets clear of the camera */
 #stage.cam-bl #lower { bottom: calc(var(--camh) + 120px); }
 #stage.cam-tl #zone { left: calc(var(--camw) + 100px); }
-#stage.cam-tr #rank { top: calc(var(--camh) + 110px); }

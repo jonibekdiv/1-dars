@@ -471,6 +471,10 @@
       <div class="row"><label><span><input type="checkbox" data-g="firstBlood" ${cfg.auto.firstBlood ? 'checked' : ''}> Birinchi kill "FIRST BLOOD"</span></label></div>
       <div class="row"><label>Rampage (o'yinchi killi, 0 = o'chiq)<input type="number" data-g="rampage" value="${cfg.auto.rampage}"></label><label>Domination (jamoa killi)<input type="number" data-g="domination" value="${cfg.auto.domination}"></label><label>Zona banneri (sek)<input type="number" data-g="zoneShowAt" value="${cfg.zoneShowAt}"></label></div></div></div>
     <div class="cols"><div class="box"><h3>OBS ga ulash</h3><p>OBS → Sources → <b>Browser</b> → URL: <code>${esc(url)}</code> · Width <b>1920</b>, Height <b>1080</b>.</p>
+      <p class="hint">OBS sahnasi (Settings → Video → Base Canvas) ham <b>1920×1080</b> bo'lsin. Boshqa o'lcham bo'lsa, overlay manbasini sichqonchada o'ng tugma → <b>Transform → Fit to screen</b> qiling. Manba 16:9 bo'lmasa, overlay markazga moslashadi.</p>
+      <h3 style="margin-top:12px">Reyting joylashuvi</h3>
+      <div class="row"><span>Yuqoridan</span><input type="range" min="100" max="520" step="10" data-g="rankTop" value="${cfg.layout.rankTop}" style="flex:1"><b class="rkv" style="width:56px;text-align:right">${cfg.layout.rankTop} px</b></div>
+      <p class="hint">O'yinning o'z minixaritasi ostiga tushishi uchun kattaroq qiling (standart 270). Ko'p jamoa bo'lsa, qatorlar o'zi ixchamlashadi.</p>
       <div class="row"><button data-a="copy" data-v="${esc(url)}">URL nusxalash</button><a href="${esc(url)}${rq ? '&' : '?'}preview" target="_blank"><button>Ko'rib chiqish (fon bilan)</button></a></div>
       <p class="hint">Ovoz effektlari uchun OBS'da manba sozlamasida <b>"Control audio via OBS"</b> ni belgilang. Rejim: <b>${Store.mode === 'supabase' ? 'Internet (Supabase)' : 'Lokal — faqat shu brauzerda'}</b> · Xona: <b>${esc(Store.room)}</b></p></div>
     <div class="box"><h3>Tomoshabinlar uchun jonli jadval</h3><p>Havola: <code>${esc(pub)}</code></p>
@@ -800,6 +804,7 @@
     if (el.id === 'filter') { filter = el.value; $('#grid').innerHTML = gridHtml(); }
     else if (d.u) ui[d.u] = el.value;
     else if (d.mu === 'vol') { const b = el.parentNode.querySelector('b'); if (b) b.textContent = el.value + '%'; }
+    else if (d.g === 'rankTop') { const b = el.parentNode.querySelector('.rkv'); if (b) b.textContent = el.value + ' px'; }
     else if (d.cam) { clearTimeout(camT); const k = d.cam, v = el.value; camT = setTimeout(() => saveCam(k, v), 450); }   // saved while typing: leaving the field then changes nothing
   });
   let camT = 0;
@@ -849,6 +854,7 @@
       else if (k === 'bpos') cfg.brand.pos = el.value;
       else if (k === 'bsize') cfg.brand.size = el.value;
       else if (k === 'bname') cfg.brand.name = el.checked;
+      else if (k === 'rankTop') cfg.layout.rankTop = Math.max(100, Math.min(520, +el.value || 270));
       else if (k === 'mpTarget') cfg.matchPoint.target = Math.max(1, +el.value || 1);
       else if (k === 'teamElim' || k === 'stealer' || k === 'firstBlood') cfg.auto[k] = el.checked;
       else if (k === 'rampage' || k === 'domination') cfg.auto[k] = +el.value || 0;

@@ -118,6 +118,10 @@ yana admin qo'shish uchun Supabase SQL Editor'da:
 
 Boshqa Supabase loyihasiga ko'chirish uchun `supabase.sql` ni ishga tushirib, `config.js` dagi manzil va kalitni almashtiring.
 
+### Reyting joylashuvi va o'lcham
+- Reyting endi yuqoridan 270 px dan boshlanadi (o'yinning minixaritasi ostida). **Sozlamalar → OBS ga ulash → Reyting joylashuvi** slayderi bilan 100–520 px oralig'ida o'zgartiriladi. Jamoa ko'p bo'lsa qatorlar o'zi ixchamlashadi, o'ng tepada kamera ramkasi bo'lsa reyting undan pastga tushadi.
+- Overlay manbasi 16:9 bo'lmasa (masalan 1920×1200), rasm kichrayib, markazga joylashadi, kesilmaydi. OBS'da manba Width 1920, Height 1080 bo'lsin; sahna (canvas) ham 1920×1080 bo'lsin.
+
 ## OBS ga ulash
 
 Sources → **+** → **Browser** → URL: `https://pubg-overlay.vercel.app/overlay.html`, Width `1920`, Height `1080`.
