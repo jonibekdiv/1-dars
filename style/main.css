@@ -22,7 +22,8 @@ a {
 }
 
 .container {
-    width: 1400px;
+    width: 100%;
+    max-width: 1400px;
     margin: 0 auto;
     padding: 0 15px;
 } 
@@ -49,8 +50,8 @@ justify-content:space-between ;
    font-weight: 600;
 }
 .header-nav-list {
-    width: 600px;
     display: flex;
+    flex-wrap: wrap;
     gap: 40px;
 }
 .header-nav-text {
@@ -88,9 +89,9 @@ justify-content:space-between ;
 }
 .biz {
     display: flex;
+    justify-content: center;
     text-align: center;
     margin-top: 100px;
-    margin-left: 600px;
     font-size: 17px;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: blue;
@@ -108,7 +109,7 @@ justify-content:space-between ;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 .main-list {
-    width:  350px;
+    max-width: 350px;
     justify-content: center;
 
 
@@ -142,6 +143,8 @@ margin-top: 20px;
 }
 .main-img {
     width: 500px;
+    max-width: 100%;
+    height: auto;
 
 }
 .main-box{
@@ -174,7 +177,7 @@ margin-top: 20px;
 
 .web{
     width: 300px;
-    height:auto l;
+    height:auto;
     align-items: center;
     padding: 10px;
     border-radius: 10px;
@@ -182,8 +185,9 @@ margin-top: 20px;
 
 .web-img {
     width: 100px;
+    display: block;
+    margin: 0 auto;
     align-items: center;
-    margin-left: 70px;
 }
 .mobile {
     width: 300px;
@@ -201,12 +205,14 @@ margin-top: 20px;
 }
 .mobile-img {
     width: 100px;
+    display: block;
+    margin: 0 auto;
     align-items: center;
-    margin-left: 70px;
 }
 .dizayn-img {
     width: 100px;
-    margin-left: 70px;
+    display: block;
+    margin: 0 auto;
 }
 .web-text{
     font-weight: 700;
@@ -248,8 +254,10 @@ margin-top: 20px;
 .kantakt-inputs{
     display: flex;
     justify-content: space-between;
+    gap: 20px;
     margin-top: 50px;
     width: 700px;
+    max-width: 100%;
 }
 .kantakt-name{
     width: 300px;
@@ -267,6 +275,7 @@ margin-top: 20px;
 }
 .kantakt-massage{
     width: 700px;
+    max-width: 100%;
     height: 100px;
     border-radius: 3px;
     border: 1px solid blue;
@@ -342,4 +351,116 @@ margin-top: 20px;
     height: 180px;
     display: flex;
     justify-content: space-between;
+}
+.kantakt-name,
+.kantakt-email {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Planshet */
+@media (max-width: 992px) {
+    .header-nav-list {
+        gap: 20px;
+    }
+    .main-servis {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 20px;
+    }
+    .info {
+        flex-direction: column;
+    }
+}
+
+/* Telefon */
+@media (max-width: 768px) {
+    .header-box {
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px 0;
+    }
+    .header-nav-list {
+        justify-content: center;
+        gap: 12px 20px;
+    }
+    .biz {
+        margin-top: 40px;
+    }
+    .main-box {
+        margin: 0;
+    }
+    .main-mini-box {
+        flex-direction: column;
+        align-items: center;
+        gap: 30px;
+        margin-top: 20px;
+    }
+    .main-list {
+        max-width: 100%;
+        text-align: center;
+    }
+    .main-btn {
+        margin-left: 0;
+    }
+    .main-servis {
+        flex-direction: column;
+        align-items: center;
+    }
+    .web,
+    .mobile,
+    .dizayn {
+        width: 100%;
+        max-width: 300px;
+    }
+    .tanish-text {
+        font-size: 24px;
+    }
+    .kantakt-inputs {
+        flex-direction: column;
+        width: 100%;
+        gap: 0;
+    }
+    .kantakt-name,
+    .kantakt-email {
+        width: 100%;
+        margin-top: 10px;
+    }
+    .kantakt-massage {
+        width: 100%;
+    }
+    .kantakt-btn {
+        width: 100%;
+    }
+    .infotext {
+        margin: 30px 0;
+    }
+    .infotext ul {
+        justify-content: flex-start;
+        align-items: center;
+        gap: 10px;
+    }
+    .infotext-text {
+        font-size: 16px;
+        margin: 0;
+        text-align: left;
+        word-break: break-word;
+    }
+    .footer {
+        height: auto;
+        padding: 20px 0;
+    }
+    .footer-box {
+        height: auto;
+        flex-direction: column;
+        align-items: center;
+    }
+    .social-icons {
+        width: 100%;
+        max-width: 300px;
+        margin: 10px 0;
+    }
+    .icons {
+        width: 40px;
+    }
 }
