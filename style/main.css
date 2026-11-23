@@ -229,7 +229,7 @@ margin-top: 20px;
     color: black;
     text-align: center;
 }
-.kantakt-one{
+.kontakt-one{
    color: blue;
     font-weight: 700;
     font-size: 20px;
@@ -237,7 +237,7 @@ margin-top: 20px;
     text-align: center;
     margin-top: 50px;
 }
-.kantakt-two{
+.kontakt-two{
     color: black;
      font-weight: 700;
     font-size: 25px;
@@ -245,27 +245,27 @@ margin-top: 20px;
     text-align: center;
 
 }
-.kantakt-inputs{
+.kontakt-inputs{
     display: flex;
     justify-content: space-between;
     margin-top: 50px;
     width: 700px;
 }
-.kantakt-name{
+.kontakt-name{
     width: 300px;
     height: 30px;
     border-radius: 3px;
     border: 1px solid blue;
     padding: 5px;
 }
-.kantakt-email{
+.kontakt-email{
     width: 300px;
     height: 30px;
     border-radius: 3px;
     border: 1px solid blue;
     padding: 5px;
 }
-.kantakt-massage{
+.kontakt-message{
     width: 700px;
     height: 100px;
     border-radius: 3px;
@@ -275,7 +275,7 @@ margin-top: 20px;
     text-align:left;
     padding:0 0 75px 10px ;
 }
-.kantakt-btn{
+.kontakt-btn{
     width: 200px;
     height: auto;
     padding: 10px;
@@ -289,7 +289,7 @@ margin-top: 20px;
     font-weight: 300;
     margin-top: 20px;
 }
-.kantakt-btn:hover{
+.kontakt-btn:hover{
   background-color: rgb(16, 98, 229);
     transform: scale(0.99);
 }
