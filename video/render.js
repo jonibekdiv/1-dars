@@ -1,8 +1,8 @@
-// internet.html animatsiyasini kadrma-kadr suratga olib, ovozli MP4 video yasaydi.
-// Ishlatish:  node video/render.js            (to'liq video)
-//             node video/render.js preview    (har bir sahnadan 2 ta kadr — tez tekshirish uchun)
-// Kerak: Node.js, playwright, ffmpeg, python3 + numpy.
-// Diktor ovozi: video/audio/vo0.mp3 ... vo5.mp3 (har bir sahna uchun bittadan).
+// HTML animatsiyani kadrma-kadr suratga olib, ovozli MP4 video yasaydi.
+// Ishlatish:  node video/render.js internet           (to'liq video)
+//             node video/render.js rocket
+//             node video/render.js rocket preview     (har sahnadan 2 kadr — tez tekshirish)
+// Kerak: Node.js, playwright, ffmpeg, python3 + numpy (+ scipy raketa uchun).
 const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
@@ -11,12 +11,6 @@ const path = require('path');
 const FPS = 30;
 const dir = __dirname;
 const framesDir = path.join(dir, '.frames');
-const outFile = path.join(dir, 'how-the-internet-works.mp4');
-const preview = process.argv[2] === 'preview';
-
-// Har sahnaning eng kam davomiyligi; diktor uzunroq gapirsa, sahna cho'ziladi.
-const MIN_DUR = [5, 5.5, 5.5, 6, 5.5, 7];
-const VO_DELAY = 0.35, VO_TAIL = 0.6;
 
 function audioLength(file) {
   if (!fs.existsSync(file)) return 0;
@@ -24,19 +18,34 @@ function audioLength(file) {
     '-of', 'default=nw=1:nk=1', file]).toString());
 }
 
-(async () => {
-  const durs = MIN_DUR.map((m, i) => {
-    const vo = audioLength(path.join(dir, 'audio', `vo${i}.mp3`));
-    return Math.round(Math.max(m, vo + VO_DELAY + VO_TAIL) * 10) / 10;
-  });
-  console.log('sahna davomiyliklari:', durs.join(', '));
+const PROJECTS = {
+  // Diktorli video: sahnalar diktor ovozi uzunligiga moslashadi (audio/vo0..5.mp3)
+  internet: {
+    page: 'internet.html', audio: 'make_audio.py', out: 'how-the-internet-works.mp4',
+    durations: () => [5, 5.5, 5.5, 6, 5.5, 7].map((m, i) => {
+      const vo = audioLength(path.join(dir, 'audio', `vo${i}.mp3`));
+      return Math.round(Math.max(m, vo + 0.35 + 0.6) * 10) / 10;
+    })
+  },
+  // Faqat SFX: davomiyliklar sahifaning o'zida belgilangan
+  rocket: { page: 'rocket.html', audio: 'rocket_audio.py', out: 'how-a-rocket-reaches-orbit.mp4', durations: null }
+};
 
+const name = process.argv[2] || 'internet';
+const preview = process.argv[3] === 'preview';
+const cfg = PROJECTS[name];
+if (!cfg) { console.error('Noma\'lum loyiha:', name, '— mavjudlari:', Object.keys(PROJECTS).join(', ')); process.exit(1); }
+
+(async () => {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
-  await page.goto('file://' + path.join(dir, 'internet.html') + '?render');
+  await page.goto('file://' + path.join(dir, cfg.page) + '?render');
   await page.evaluate(() => window.ready);
-  await page.evaluate(d => window.setDurations(d), durs);
+  let durs;
+  if (cfg.durations) { durs = cfg.durations(); await page.evaluate(d => window.setDurations(d), durs); }
+  else durs = await page.evaluate(() => window.SCENE_DURS);
   const duration = await page.evaluate(() => window.DURATION);
+  console.log('sahnalar:', durs.join(', '), `= ${duration.toFixed(1)} s`);
 
   fs.rmSync(framesDir, { recursive: true, force: true });
   fs.mkdirSync(framesDir);
@@ -54,22 +63,22 @@ function audioLength(file) {
       window.renderFrame(t);
       return document.getElementById('c').toDataURL('image/png');
     }, times[i]);
-    const name = `f_${String(i).padStart(4, '0')}.png`;
-    fs.writeFileSync(path.join(framesDir, name), Buffer.from(data.split(',')[1], 'base64'));
-    if (i % 120 === 0) console.log(`kadr ${i}/${times.length}`);
+    fs.writeFileSync(path.join(framesDir, `f_${String(i).padStart(4, '0')}.png`), Buffer.from(data.split(',')[1], 'base64'));
+    if (i % 300 === 0) console.log(`kadr ${i}/${times.length}`);
   }
   await browser.close();
 
   if (preview) { console.log('preview kadrlar:', framesDir); return; }
 
   const wav = path.join(framesDir, 'mix.wav');
-  execFileSync('python3', [path.join(dir, 'make_audio.py'), JSON.stringify(durs), wav], { stdio: 'inherit' });
+  execFileSync('python3', [path.join(dir, cfg.audio), JSON.stringify(durs), wav], { stdio: 'inherit' });
 
+  const outFile = path.join(dir, cfg.out);
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(FPS),
     '-i', path.join(framesDir, 'f_%04d.png'), '-i', wav,
     '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', '-preset', 'slow',
     '-c:a', 'aac', '-b:a', '192k', '-shortest',
     '-movflags', '+faststart', outFile], { stdio: 'inherit' });
   fs.rmSync(framesDir, { recursive: true, force: true });
-  console.log('Tayyor:', outFile, `(${duration.toFixed(1)} s)`);
+  console.log('Tayyor:', outFile);
 })();

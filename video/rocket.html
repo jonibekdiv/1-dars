@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How a Rocket Reaches Orbit</title>
+<style>
+  @font-face { font-family: "Press Start 2P"; src: url("fonts/PressStart2P-Regular.ttf"); }
+  @font-face { font-family: "VT323"; src: url("fonts/VT323-Regular.ttf"); }
+  html, body { margin: 0; height: 100%; background: #05060f; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { height: 100vh; max-width: 100vw; aspect-ratio: 9 / 16; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Piksel-art: rasm 270x480 da chiziladi, 4x kattalashtiriladi; matnlar 1080x1920 da.
+const W = 270, H = 480, S = 4;
+const art = document.createElement('canvas'); art.width = W; art.height = H;
+const a = art.getContext('2d');
+const out = document.getElementById('c'); out.width = W * S; out.height = H * S;
+const o = out.getContext('2d');
+
+const C = {
+  yellow: '#ffd23f', cyan: '#4de1ff', pink: '#ff5c8a', green: '#6bff8f', red: '#ff4d4d',
+  white: '#f4f1ff', dark: '#0a0a14', orange: '#ff9f43', blue: '#4d7cff'
+};
+
+// ===== Yordamchilar =====
+const clamp = (v, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, v));
+const lerp = (x, y, k) => x + (y - x) * k;
+const seg = (p, s, e) => clamp((p - s) / (e - s));
+const easeOut = k => 1 - Math.pow(1 - k, 3);
+const easeIn = k => k * k * k;
+const easeInOut = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+const backOut = k => { const c = 1.9; return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2); };
+const bell = (p, c = 0.5, w = 0.2) => Math.exp(-Math.pow((p - c) / w, 2));
+function rnd(i) { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+function R(x, y, w, h, col) { a.fillStyle = col; a.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); }
+function circ(x, y, r, col) { a.fillStyle = col; a.beginPath(); a.arc(Math.round(x), Math.round(y), Math.max(0, r), 0, Math.PI * 2); a.fill(); }
+function glow(x, y, r, col, alpha) {
+  const g = a.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+  a.globalAlpha = alpha; a.fillStyle = g; a.fillRect(x - r, y - r, r * 2, r * 2); a.globalAlpha = 1;
+}
+function sky(top, bot) { const g = a.createLinearGradient(0, 0, 0, H); g.addColorStop(0, top); g.addColorStop(1, bot); a.fillStyle = g; a.fillRect(0, 0, W, H); }
+function stars(lt, alpha = 1, n = 80) {
+  for (let i = 0; i < n; i++) {
+    a.globalAlpha = alpha * (0.3 + 0.7 * (0.5 + 0.5 * Math.sin(lt * 2.5 + i * 1.7)) * rnd(i + 9));
+    R(rnd(i) * W, rnd(i + 200) * H, rnd(i + 5) > 0.85 ? 2 : 1, 1, '#ffffff');
+  }
+  a.globalAlpha = 1;
+}
+function cloud(x, y, w, alpha = 1, col = '#ffffff') {
+  a.globalAlpha = alpha;
+  circ(x, y, w * 0.28, col); circ(x - w * 0.28, y + w * 0.06, w * 0.2, col); circ(x + w * 0.3, y + w * 0.05, w * 0.22, col);
+  R(x - w * 0.5, y + w * 0.05, w, w * 0.2, col);
+  a.globalAlpha = 1;
+}
+// vertikal yoki ixtiyoriy yo'nalishdagi o'q
+function arrow(x1, y1, x2, y2, col, wd = 3) {
+  const ang = Math.atan2(y2 - y1, x2 - x1);
+  a.strokeStyle = col; a.fillStyle = col; a.lineWidth = wd;
+  a.beginPath(); a.moveTo(x1, y1); a.lineTo(x2 - Math.cos(ang) * 6, y2 - Math.sin(ang) * 6); a.stroke();
+  a.beginPath(); a.moveTo(x2, y2);
+  a.lineTo(x2 - Math.cos(ang - 0.5) * 10, y2 - Math.sin(ang - 0.5) * 10);
+  a.lineTo(x2 - Math.cos(ang + 0.5) * 10, y2 - Math.sin(ang + 0.5) * 10); a.fill();
+}
+
+// Hi-res matn
+function T(s, x, y, size, col, font = 'VT323', align = 'center', alpha = 1) {
+  o.globalAlpha = alpha;
+  o.font = `${size}px "${font}"`; o.textAlign = align; o.textBaseline = 'middle';
+  const sh = Math.max(3, Math.round(size * 0.08));
+  o.fillStyle = '#000'; o.fillText(s, x + sh, y + sh);
+  o.fillStyle = col; o.fillText(s, x, y);
+  o.globalAlpha = 1;
+}
+function TS(parts, cx, y, size, font, alpha = 1) {
+  o.font = `${size}px "${font}"`;
+  const total = parts.reduce((s, [t]) => s + o.measureText(t).width, 0);
+  let x = cx - total / 2;
+  for (const [t, col] of parts) { T(t, x, y, size, col, font, 'left', alpha); o.font = `${size}px "${font}"`; x += o.measureText(t).width; }
+}
+function title(lt, head, line, sub) {
+  const k = easeOut(clamp(lt / 0.45));
+  const y0 = lerp(60, 150, k);
+  o.globalAlpha = k * 0.82; o.fillStyle = '#05060f';
+  o.fillRect(70, y0 - 70, 940, sub ? 330 : 250);
+  o.globalAlpha = k; o.fillStyle = C.yellow;
+  o.fillRect(70, y0 - 70, 940, 8); o.fillRect(70, y0 + (sub ? 252 : 172), 940, 8);
+  o.globalAlpha = 1;
+  TS(head, 540, y0, 56, 'Press Start 2P', k);
+  T(line, 540, y0 + 95, 64, C.white, 'VT323', 'center', k);
+  if (sub) T(sub, 540, y0 + 170, 56, C.cyan, 'VT323', 'center', k);
+}
+function tag(s, x, y, col, size = 44, alpha = 1) { T(s, x * S, y * S, size, col, 'VT323', 'center', alpha); }
+
+// ===== Raketa =====
+// Mahalliy koordinatalar: burun -40, 2-bosqich -40..0, 1-bosqich 2..41. O'lcham 1.5x.
+function stage2Local(flame, flameCol, t) {
+  if (flame > 0) flameLocal(0, 3, 4, flame * 16, flameCol, t);
+  a.fillStyle = '#e9ecf5'; a.beginPath(); a.moveTo(0, -42); a.lineTo(5, -31); a.lineTo(-5, -31); a.fill();
+  R(-5, -31, 10, 31, '#e9ecf5'); R(-5, -31, 3, 31, '#c3c8da');
+  R(-5, -20, 10, 2, '#22243a'); R(-3, -12, 2, 2, '#3a64c8');
+  R(-3, 0, 6, 3, '#6b7090');
+}
+function stage1Local(flame, t) {
+  if (flame > 0) flameLocal(0, 44, 9, flame * 34, 'orange', t);
+  R(-5, 1, 10, 3, '#22243a');
+  R(-5, 4, 10, 37, '#e9ecf5'); R(-5, 4, 3, 37, '#c3c8da');
+  R(-5, 12, 10, 3, '#22243a'); R(-5, 30, 10, 2, '#22243a');
+  a.fillStyle = '#2d3048';
+  a.beginPath(); a.moveTo(-5, 30); a.lineTo(-10, 41); a.lineTo(-5, 41); a.fill();
+  a.beginPath(); a.moveTo(5, 30); a.lineTo(10, 41); a.lineTo(5, 41); a.fill();
+  R(-5, 41, 10, 3, '#6b7090');
+}
+function flameLocal(x, y, w, len, kind, t) {
+  const fl = 0.85 + 0.15 * Math.sin(t * 47) + 0.1 * Math.sin(t * 31);
+  len *= fl;
+  const outer = kind === 'blue' ? 'rgba(90,160,255,0.9)' : 'rgba(255,120,40,0.95)';
+  const inner = kind === 'blue' ? '#dff3ff' : '#fff3a0';
+  a.fillStyle = outer; a.beginPath(); a.moveTo(x - w / 2, y); a.lineTo(x + w / 2, y); a.lineTo(x, y + len); a.fill();
+  a.fillStyle = inner; a.beginPath(); a.moveTo(x - w / 4, y); a.lineTo(x + w / 4, y); a.lineTo(x, y + len * 0.55); a.fill();
+}
+function rocket(cx, cy, ang, t, opt = {}) {
+  const sc = opt.sc || 1.5;
+  a.save(); a.translate(cx, cy); a.rotate(ang); a.scale(sc, sc);
+  if (opt.s1 !== false) stage1Local(opt.f1 || 0, t);
+  stage2Local(opt.f2 || 0, 'blue', t);
+  a.restore();
+  if ((opt.f1 || 0) > 0) {
+    const gx = cx - Math.sin(ang) * 75 * sc / 1.5, gy = cy + Math.cos(ang) * 75 * sc / 1.5;
+    glow(gx, gy, 45, 'rgba(255,170,60,1)', 0.45 * opt.f1);
+  }
+}
+
+// ===== Sahnalar =====
+const SCENES = [
+  { // 0 — start maydonchasi, teskari sanoq
+    d: 4.5, key: 'pad',
+    art(lt, p) { padScene(lt, 0, 0); },
+    hud(lt, p) {
+      const k = easeOut(clamp(lt / 0.5));
+      o.globalAlpha = 0.85 * k; o.fillStyle = '#05060f'; o.fillRect(60, 90, 960, 430); o.globalAlpha = 1;
+      o.fillStyle = C.orange; o.fillRect(60, 90, 960 * k, 10); o.fillRect(60, 510, 960 * k, 10);
+      T('HOW A ROCKET', 540, 185, 56, C.white, 'Press Start 2P', 'center', k);
+      T('REACHES', 540, 290, 56, C.white, 'Press Start 2P', 'center', k);
+      T('ORBIT', 540, 400, 96, C.yellow, 'Press Start 2P', 'center', k);
+      T('the first 9 minutes, step by step', 540, 475, 48, C.cyan, 'VT323', 'center', k);
+      for (let n = 3; n >= 1; n--) {
+        const st = this.d - n;
+        if (lt >= st && lt < st + 1) {
+          const kk = backOut(seg(lt, st, st + 0.25));
+          o.save(); o.translate(540, 760); o.scale(kk, kk);
+          T(String(n), 0, 0, 200, n === 1 ? C.red : C.yellow, 'Press Start 2P');
+          o.restore();
+        }
+      }
+    }
+  },
+  { // 1 — ko'tarilish
+    d: 6, key: 'liftoff', noWipe: true,
+    rise(lt) { const t = Math.max(0, lt - 0.9); return 7 * t * t; },
+    art(lt, p) {
+      const h = this.rise(lt), ry = Math.max(230, 338 - h), cam = h - (338 - ry);
+      padScene(lt + 4.5, cam, clamp(lt / 0.6));
+      smoke(lt, cam);
+      const shake = lt < 1.2 ? (rnd(Math.floor(lt * 40)) - 0.5) * 2 : 0;
+      rocket(135 + shake, ry, 0, lt, { f1: clamp(lt / 0.5) });
+      if (lt > 1.4) {
+        const k = easeOut(seg(lt, 1.4, 1.9));
+        arrow(200, ry + 30, 200, ry + 30 - 85 * k, C.green, 4);
+        arrow(222, ry - 10, 222, ry - 10 + 40 * k, C.red, 4);
+      }
+    },
+    hud(lt, p) {
+      title(lt, [['1. ', C.yellow], ['LIFTOFF', C.orange]], 'Engines push gas DOWN...', '...so the rocket goes UP');
+      if (lt > 1.6) {
+        const h = this.rise(lt), ry = Math.max(230, 338 - h), al = seg(lt, 1.6, 2);
+        tag('THRUST', 200, ry - 64, C.green, 48, al);
+        tag('WEIGHT', 222, ry + 40, C.red, 48, al);
+        tag('thrust > weight', 135, 430, C.white, 52, seg(lt, 2.5, 3));
+      }
+    }
+  },
+  { // 2 — og'ish (gravity turn)
+    d: 6, key: 'turn',
+    ang(p) { return easeInOut(p) * 0.75; },
+    art(lt, p) {
+      const k = p;
+      sky(lerpCol('#2a3f9a', '#0d1a55', k), lerpCol('#7fb3ff', '#3a6fd0', k));
+      for (let i = 0; i < 9; i++) {
+        const sp = 70 + rnd(i) * 60;
+        const y = ((rnd(i + 3) * 600 + lt * sp) % 600) - 80;
+        const x = ((rnd(i + 8) * 400 - lt * sp * 0.7 * k) % 400 + 400) % 400 - 60;
+        cloud(x, y, 40 + rnd(i + 1) * 40, 0.85);
+      }
+      const an = this.ang(p);
+      // kelajakdagi yo'l (nuqtali)
+      for (let s = 0.08; s < 1; s += 0.06) {
+        const px = 135 + Math.sin(an) * 60 * s + s * s * 120, py = 250 - Math.cos(an) * 160 * s + s * s * 40;
+        a.globalAlpha = 0.8 * (1 - s); R(px, py, 3, 3, C.yellow);
+      }
+      a.globalAlpha = 1;
+      rocket(135, 255, an, lt, { f1: 0.9 });
+    },
+    hud(lt, p) {
+      title(lt, [['2. ', C.yellow], ['THE TURN', C.cyan]], 'Orbit is about going SIDEWAYS', 'so it slowly tilts');
+      tag(Math.round(this.ang(p) * 180 / Math.PI) + '°', 75, 255, C.yellow, 64);
+      tag('tilt', 75, 272, C.white, 40);
+    }
+  },
+  { // 3 — Max-Q
+    d: 5, key: 'maxq', noWipe: true,
+    art(lt, p) {
+      sky('#0b1240', '#2a55b0');
+      const b = bell(p, 0.5, 0.22), an = 0.75;
+      // tezlik chiziqlari
+      for (let i = 0; i < 26; i++) {
+        const sp = 300 + rnd(i) * 200, L = 20 + rnd(i + 2) * 30;
+        const t0 = (rnd(i + 5) + lt * sp / 500) % 1;
+        const x = W + 40 - t0 * (W + 120) + rnd(i + 9) * 60, y = -40 + t0 * (H + 80) * 0.9 + rnd(i + 4) * 120 - 60;
+        a.globalAlpha = 0.25 + 0.5 * b; a.strokeStyle = '#ffffff'; a.lineWidth = 1;
+        a.beginPath(); a.moveTo(x, y); a.lineTo(x - Math.sin(an) * L, y + Math.cos(an) * L); a.stroke();
+      }
+      a.globalAlpha = 1;
+      const sx = (rnd(Math.floor(lt * 30)) - 0.5) * 5 * b, sy = (rnd(Math.floor(lt * 30) + 50) - 0.5) * 5 * b;
+      // bug' konusi
+      a.save(); a.translate(125 + sx, 265 + sy); a.rotate(an); a.scale(1.5, 1.5);
+      a.globalAlpha = 0.55 * b; a.fillStyle = '#eaf6ff';
+      a.beginPath(); a.moveTo(0, -18); a.quadraticCurveTo(26, 10, 18, 26); a.lineTo(-18, 26); a.quadraticCurveTo(-26, 10, 0, -18); a.fill();
+      a.globalAlpha = 1; a.restore();
+      rocket(125 + sx, 265 + sy, an, lt, { f1: 0.8 });
+      // bosim o'lchagichi
+      R(228, 150, 18, 230, '#22243a'); R(231, 153, 12, 224, '#0b0d1c');
+      const fh = 220 * b;
+      R(232, 375 - fh, 10, fh, b > 0.8 ? C.red : b > 0.45 ? C.orange : C.green);
+      R(224, 155, 26, 2, C.red);
+    },
+    hud(lt, p) {
+      title(lt, [['3. ', C.yellow], ['MAX-Q', C.red]], 'Air hits hardest here', 'the most stress on the rocket');
+      tag('AIR', 237, 132, C.white, 40); tag('PRESSURE', 237, 141, C.white, 40);
+      if (bell(p, 0.5, 0.22) > 0.85) tag('MAX!', 237, 395, C.red, 52);
+    }
+  },
+  { // 4 — bosqichlarning ajralishi
+    d: 6.5, key: 'staging',
+    art(lt, p) {
+      sky('#020309', '#0b1640');
+      stars(lt, clamp(p * 1.5));
+      // Yer egriligi
+      circ(135, 980, 600, '#1f5fb8'); glow(135, 400, 160, 'rgba(120,200,255,1)', 0.35);
+      a.globalAlpha = 0.6; circ(135, 982, 598, '#2f7bd8'); a.globalAlpha = 1;
+      for (let i = 0; i < 7; i++) cloud(((rnd(i) * 360 - lt * 8) % 360 + 360) % 360 - 40, 392 + rnd(i + 1) * 20, 30, 0.7);
+      const an = 1.05, cx = 125, cy = 230;
+      const cut = p > 0.24, sep = seg(p, 0.36, 1), ign = p > 0.46;
+      if (!cut || sep === 0) {
+        rocket(cx, cy, an, lt, { f1: cut ? 0 : 0.7 });
+      } else {
+        // 1-bosqich orqaga ketib, aylanib qoladi
+        const d = easeIn(sep) * 0 + sep * 90, rot = sep * 3;
+        const bx = cx - Math.sin(an) * d, by = cy + Math.cos(an) * d;
+        a.save(); a.translate(bx, by); a.rotate(an + rot); a.scale(1.5, 1.5); stage1Local(0, lt); a.restore();
+        // 2-bosqich oldinga
+        const fx = cx + Math.sin(an) * sep * 25, fy = cy - Math.cos(an) * sep * 25;
+        a.save(); a.translate(fx, fy); a.rotate(an); a.scale(1.5, 1.5);
+        stage2Local(ign ? clamp(seg(p, 0.46, 0.55)) : 0, 'blue', lt); a.restore();
+        if (sep < 0.15) glow(cx, cy, 30, 'rgba(255,240,200,1)', 0.9 * (1 - sep / 0.15));
+      }
+    },
+    hud(lt, p) {
+      title(lt, [['4. ', C.yellow], ['STAGING', C.pink]], 'Empty tank? Drop it!', 'lighter rocket = more speed');
+      if (p > 0.24 && p < 0.46) tag('ENGINE OFF', 135, 140, C.orange, 56, seg(p, 0.24, 0.28));
+      if (p > 0.4) {
+        const sep = seg(p, 0.36, 1), an = 1.05;
+        tag('EMPTY', 125 - Math.sin(an) * sep * 90 + 20, 230 + Math.cos(an) * sep * 90 + 34, '#9aa3c7', 44, seg(p, 0.4, 0.45));
+      }
+      if (p > 0.48) tag('2ND ENGINE ON', 180, 175, C.cyan, 52, seg(p, 0.48, 0.52));
+    }
+  },
+  { // 5 — orbita
+    d: 9, key: 'orbit',
+    th(lt) { return -Math.PI / 2 + lt * 0.75; },
+    art(lt, p) {
+      R(0, 0, W, H, '#03040b'); stars(lt, 1, 110);
+      const ex = 135, ey = 255, er = 60;
+      glow(ex, ey, er + 26, 'rgba(100,190,255,1)', 0.45);
+      circ(ex, ey, er, '#1f5fb8');
+      a.save(); a.beginPath(); a.arc(ex, ey, er, 0, Math.PI * 2); a.clip();
+      for (let i = 0; i < 10; i++) {
+        const x = ((rnd(i) * 160 + lt * 6) % 160) + ex - 80, y = ey - 50 + rnd(i + 30) * 100;
+        circ(x, y, 7 + rnd(i + 2) * 12, '#3fa35a');
+      }
+      for (let i = 0; i < 8; i++) { const x = ((rnd(i + 50) * 160 + lt * 10) % 160) + ex - 80; R(x, ey - 50 + rnd(i + 70) * 100, 16 + rnd(i) * 14, 3, 'rgba(255,255,255,0.75)'); }
+      a.fillStyle = 'rgba(0,0,30,0.45)'; a.beginPath(); a.arc(ex + 26, ey + 8, er + 6, 0, Math.PI * 2); a.fill();
+      a.restore();
+      // orbita yo'li
+      const orr = 98;
+      for (let d = 0; d < 360; d += 7) { const r = d * Math.PI / 180; R(ex + Math.cos(r) * orr - 1, ey + Math.sin(r) * orr - 1, 2, 2, 'rgba(255,210,63,0.55)'); }
+      const th = this.th(lt), sx = ex + Math.cos(th) * orr, sy = ey + Math.sin(th) * orr;
+      const k = easeOut(seg(p, 0.1, 0.2));
+      if (k > 0) {
+        arrow(sx, sy, sx - Math.sin(th) * 45 * k, sy + Math.cos(th) * 45 * k, C.yellow, 3);
+        arrow(sx, sy, sx - Math.cos(th) * 32 * k, sy - Math.sin(th) * 32 * k, C.red, 3);
+      }
+      a.save(); a.translate(sx, sy); a.rotate(th + Math.PI); a.scale(0.9, 0.9); stage2Local(0, 'blue', lt);
+      R(-14, -20, 9, 5, '#3a64c8'); R(5, -20, 9, 5, '#3a64c8'); a.restore();
+    },
+    hud(lt, p) {
+      title(lt, [['5. ', C.yellow], ['ORBIT', C.green]], 'It falls toward Earth...', '...but moves so fast it keeps MISSING');
+      const th = this.th(lt), sx = 135 + Math.cos(th) * 98, sy = 255 + Math.sin(th) * 98, al = seg(p, 0.15, 0.22);
+      tag('SPEED', sx - Math.sin(th) * 62, sy + Math.cos(th) * 62, C.yellow, 44, al);
+      tag('GRAVITY', sx - Math.cos(th) * 52, sy - Math.sin(th) * 52, C.red, 44, al);
+      if (p > 0.66) {
+        const k = backOut(seg(p, 0.66, 0.74));
+        o.save(); o.translate(540, 1500); o.scale(k, k);
+        o.fillStyle = '#05060f'; o.globalAlpha = 0.88; o.fillRect(-480, -120, 960, 280); o.globalAlpha = 1;
+        o.fillStyle = C.green; o.fillRect(-480, -120, 960, 8); o.fillRect(-480, 152, 960, 8);
+        T('28,000 KM/H', 0, -40, 64, C.yellow, 'Press Start 2P');
+        T('= around Earth in 90 minutes', 0, 55, 58, C.white, 'VT323');
+        o.restore();
+      }
+      if (p > 0.84) T('Follow for more  >>', 540, 1680, 52, C.cyan, 'VT323', 'center', seg(p, 0.84, 0.88));
+    }
+  }
+];
+let DURATION = SCENES.reduce((s, x) => s + x.d, 0);
+
+function lerpCol(c1, c2, k) {
+  const h = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+  const [r1, g1, b1] = h(c1), [r2, g2, b2] = h(c2);
+  return `rgb(${Math.round(lerp(r1, r2, k))},${Math.round(lerp(g1, g2, k))},${Math.round(lerp(b1, b2, k))})`;
+}
+
+// Start maydoni (0- va 1-sahna). cam — kamera qancha yuqoriga ko'tarilgani.
+function padScene(t, cam, ign) {
+  sky('#24337e', '#ff9a5a');
+  stars(t, 0.5, 30);
+  glow(215, 395 + cam, 70, 'rgba(255,180,90,1)', 0.6); circ(215, 395 + cam, 16, '#ffd08a');
+  for (let i = 0; i < 4; i++) cloud(((rnd(i + 11) * 330 + t * 3) % 330) - 30, 120 + rnd(i + 2) * 120 + cam * 0.5, 50, 0.35, '#ffd9e8');
+  // yer
+  R(0, 400 + cam, W, 80, '#1d2a2a'); R(0, 400 + cam, W, 3, '#2c3d3a');
+  R(95, 396 + cam, 80, 6, '#555a70');
+  // minora
+  const tx = 100, top = 255 + cam;
+  R(tx - 6, top, 3, 145, '#8a3a2a'); R(tx + 3, top, 3, 145, '#8a3a2a');
+  for (let y = top; y < 400 + cam; y += 10) { R(tx - 6, y, 12, 2, '#8a3a2a'); }
+  R(tx - 8, top - 6, 16, 6, '#8a3a2a'); R(tx + 2, top - 10, 2, 4, C.red);
+  const armOut = 1 - clamp(ign * 2);
+  R(tx + 6, 300 + cam, 18 * (armOut * 0.6 + 0.4), 4, '#8a3a2a');
+  // raketa maydonda (faqat 0-sahnada; 1-sahnada alohida chiziladi)
+  if (cam === 0 && ign === 0) {
+    rocket(135, 338, 0, t, { f1: 0 });
+    for (let i = 0; i < 6; i++) { const age = (t * 0.7 + i / 6) % 1; cloud(120 + i * 6 + age * 25 * (i % 2 ? 1 : -1), 396 - age * 30, 10 + age * 14, 0.5 * (1 - age)); }
+  }
+}
+function smoke(lt, cam) {
+  for (let i = 0; i < 46; i++) {
+    const tb = 0.2 + i * 0.11; if (lt < tb) continue;
+    const age = lt - tb, side = rnd(i) < 0.5 ? -1 : 1;
+    const x = 135 + side * (8 + age * (18 + rnd(i + 3) * 22)), y = 398 + cam - age * (3 + rnd(i + 6) * 6);
+    const r = 7 + age * (5 + rnd(i + 1) * 4);
+    const g = Math.round(200 + rnd(i + 2) * 50);
+    circ(x, y, r, `rgba(${g},${g},${g},${clamp(0.95 - age * 0.12)})`);
+  }
+}
+
+// Pastki panel: vaqt, balandlik, tezlik, 5 qadam
+const KEYS = [ // [t sahna oxiri, T+ soniya, balandlik km, tezlik km/h]
+  [0, 0, 0, 0], [1, 40, 1.5, 600], [2, 60, 9, 1300], [3, 75, 13, 1700], [4, 160, 80, 8500], [5, 530, 200, 28000]];
+function telemetry(t) {
+  let acc = 0; const ends = SCENES.map(s => (acc += s.d));
+  const st = ends[0]; if (t < st) return null;
+  for (let i = 1; i < SCENES.length; i++) {
+    if (t <= ends[i] || i === SCENES.length - 1) {
+      const p = i === 5 ? easeOut(seg(t, ends[4], ends[4] + SCENES[5].d * 0.5)) : seg(t, ends[i - 1], ends[i]);
+      const A = KEYS[i - 1], B = KEYS[i], e = i === 1 ? p * p : p;
+      return [lerp(A[1], B[1], e), lerp(A[2], B[2], e), lerp(A[3], B[3], e)];
+    }
+  }
+}
+function hudBar(t) {
+  const y = 1740;
+  o.fillStyle = 'rgba(5,6,15,0.92)'; o.fillRect(30, y, 1020, 150);
+  o.fillStyle = '#2a3670'; o.fillRect(30, y, 1020, 6);
+  const tm = telemetry(t);
+  let clock;
+  if (!tm) { clock = 'T-00:0' + Math.max(1, Math.ceil(SCENES[0].d - t)); }
+  else { const s = Math.floor(tm[0]); clock = 'T+' + String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+  T(clock, 60, y + 48, 26, tm ? C.green : C.red, 'Press Start 2P', 'left');
+  T('ALT ' + (tm ? tm[1] : 0).toFixed(1) + ' km', 60, y + 108, 52, C.white, 'VT323', 'left');
+  T('SPEED', 370, y + 48, 26, '#8b93c7', 'Press Start 2P', 'left');
+  T(Math.round(tm ? tm[2] : 0).toLocaleString('en-US') + ' km/h', 370, y + 108, 52, C.yellow, 'VT323', 'left');
+  let acc = SCENES[0].d;
+  const labs = ['lift', 'turn', 'max-q', 'stage', 'orbit'];
+  for (let i = 0; i < 5; i++) {
+    const on = t >= acc; acc += SCENES[i + 1].d;
+    const cx = 712 + i * 76, cy = y + 52;
+    o.fillStyle = on ? [C.orange, C.cyan, C.red, C.pink, C.green][i] : '#22264a';
+    o.beginPath(); o.arc(cx, cy, 21, 0, Math.PI * 2); o.fill();
+    T(String(i + 1), cx, cy + 2, 18, on ? C.dark : '#5a6090', 'Press Start 2P');
+    T(labs[i], cx, y + 110, 30, on ? C.white : '#5a6090', 'VT323');
+  }
+}
+
+function pixelWipe(k) {
+  if (k >= 1) return;
+  const b = 15;
+  for (let gy = 0; gy < H / b; gy++) for (let gx = 0; gx < W / b; gx++)
+    if (rnd(gx * 31 + gy * 7) > k) R(gx * b, gy * b, b, b, '#05060f');
+}
+
+function renderFrame(t) {
+  let acc = 0, i = 0;
+  while (i < SCENES.length - 1 && t >= acc + SCENES[i].d) { acc += SCENES[i].d; i++; }
+  const sc = SCENES[i], lt = t - acc, p = clamp(lt / sc.d);
+  a.clearRect(0, 0, W, H);
+  sc.art(lt, p);
+  if (i > 0 && !sc.noWipe) pixelWipe(lt / 0.35);
+  o.imageSmoothingEnabled = false;
+  o.drawImage(art, 0, 0, W * S, H * S);
+  if (i === 0 || sc.noWipe || lt > 0.2) sc.hud(lt, p);
+  hudBar(t);
+  // ajralishdagi yorqin chaqnash
+  if (i === 1 && lt < 0.25) { o.globalAlpha = 0.6 * (1 - lt / 0.25); o.fillStyle = '#fff1c0'; o.fillRect(0, 0, W * S, H * S); o.globalAlpha = 1; }
+  const f = seg(t, DURATION - 0.5, DURATION);
+  if (f > 0) { o.globalAlpha = f; o.fillStyle = '#000'; o.fillRect(0, 0, W * S, H * S); o.globalAlpha = 1; }
+}
+
+window.DURATION = DURATION;
+window.SCENE_DURS = SCENES.map(s => s.d);
+window.renderFrame = renderFrame;
+window.ready = Promise.all([document.fonts.load('40px "Press Start 2P"'), document.fonts.load('40px "VT323"')]);
+
+if (!location.search.includes('render')) {
+  window.ready.then(() => {
+    const t0 = performance.now();
+    (function loop() { renderFrame(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(loop); })();
+  });
+}
+</script>
+</body>
+</html>
