@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Internet qanday ishlaydi?</title>
+<style>
+  @font-face { font-family: "Press Start 2P"; src: url("fonts/PressStart2P-Regular.ttf"); }
+  @font-face { font-family: "VT323"; src: url("fonts/VT323-Regular.ttf"); }
+  html, body { margin: 0; height: 100%; background: #05060f; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { height: 100vh; max-width: 100vw; aspect-ratio: 9 / 16; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// ===== Sozlamalar =====
+// Rasm past o'lchamda (270x480) chiziladi va 4 marta kattalashtiriladi — piksel-art ko'rinishi uchun.
+// Matnlar esa to'liq 1080x1920 o'lchamda yoziladi, shunda ular tiniq chiqadi.
+const W = 270, H = 480, S = 4;
+const art = document.createElement('canvas');
+art.width = W; art.height = H;
+const a = art.getContext('2d');
+const out = document.getElementById('c');
+out.width = W * S; out.height = H * S;
+const o = out.getContext('2d');
+
+const C = {
+  night: '#0b1030', night2: '#18204f', wall: '#241c47', wall2: '#2b2255',
+  yellow: '#ffd23f', cyan: '#4de1ff', pink: '#ff5c8a', green: '#6bff8f',
+  white: '#f4f1ff', dark: '#0a0a14', paper: '#fff3c4', orange: '#ff9f43', blue: '#4d7cff'
+};
+
+// ===== Yordamchi funksiyalar =====
+const clamp = (v, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, v));
+const lerp = (x, y, k) => x + (y - x) * k;
+const seg = (p, s, e) => clamp((p - s) / (e - s));
+const easeOut = k => 1 - Math.pow(1 - k, 3);
+const easeInOut = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+const backOut = k => { const c = 1.9; return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2); };
+function rnd(i) { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+function R(x, y, w, h, col) { a.fillStyle = col; a.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); }
+function glow(x, y, r, col, alpha) {
+  const g = a.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+  a.globalAlpha = alpha; a.fillStyle = g; a.fillRect(x - r, y - r, r * 2, r * 2); a.globalAlpha = 1;
+}
+
+// Hi-res matn
+function T(s, x, y, size, col, font = 'VT323', align = 'center', alpha = 1) {
+  o.globalAlpha = alpha;
+  o.font = `${size}px "${font}"`; o.textAlign = align; o.textBaseline = 'middle';
+  const sh = Math.max(3, Math.round(size * 0.08));
+  o.fillStyle = '#000'; o.fillText(s, x + sh, y + sh);
+  o.fillStyle = col; o.fillText(s, x, y);
+  o.globalAlpha = 1;
+}
+// Rangli bo'laklardan iborat qator: [[matn, rang], ...]
+function TS(parts, cx, y, size, font, alpha = 1) {
+  o.font = `${size}px "${font}"`;
+  const total = parts.reduce((s, [t]) => s + o.measureText(t).width, 0);
+  let x = cx - total / 2;
+  for (const [t, col] of parts) { T(t, x, y, size, col, font, 'left', alpha); o.font = `${size}px "${font}"`; x += o.measureText(t).width; }
+}
+// Sarlavha bloki (har sahna tepasida)
+function title(lt, head, line, sub) {
+  const k = easeOut(clamp(lt / 0.45));
+  const y0 = lerp(60, 150, k);
+  o.globalAlpha = k * 0.82; o.fillStyle = '#05060f';
+  o.fillRect(70, y0 - 70, 940, sub ? 330 : 250);
+  o.globalAlpha = k; o.fillStyle = C.yellow;
+  o.fillRect(70, y0 - 70, 940, 8); o.fillRect(70, y0 + (sub ? 252 : 172), 940, 8);
+  o.globalAlpha = 1;
+  TS(head, 540, y0, 56, 'Press Start 2P', k);
+  T(line, 540, y0 + 95, 64, C.white, 'VT323', 'center', k);
+  if (sub) T(sub, 540, y0 + 170, 56, C.cyan, 'VT323', 'center', k);
+}
+
+// ===== Qahramon: "Paket" (kichik xatjild) =====
+function packet(x, y, t, s = 1, col = C.paper) {
+  x = Math.round(x); y = Math.round(y);
+  glow(x, y, 16 * s, 'rgba(255,210,63,0.9)', 0.55);
+  const w = 16 * s, h = 11 * s, l = x - w / 2, tp = y - h / 2;
+  R(l - s, tp - s, w + 2 * s, h + 2 * s, '#3a2a00');
+  R(l, tp, w, h, col);
+  // qopqoq chiziqlari
+  for (let i = 0; i < 8 * s; i++) {
+    R(l + i, tp + Math.floor(i * 0.6), s, s, '#d9b44a');
+    R(l + w - 1 - i, tp + Math.floor(i * 0.6), s, s, '#d9b44a');
+  }
+  // ko'zlar (vaqti-vaqti bilan ko'zini yumadi)
+  const blink = (t % 2.7) < 0.12;
+  const ey = tp + 6 * s;
+  if (blink) { R(x - 4 * s, ey + s, 2 * s, s, C.dark); R(x + 2 * s, ey + s, 2 * s, s, C.dark); }
+  else { R(x - 4 * s, ey, 2 * s, 2 * s, C.dark); R(x + 2 * s, ey, 2 * s, 2 * s, C.dark); }
+  R(x - s, ey + 3 * s, 2 * s, s, C.pink); // tabassum
+}
+function trail(fn, lt, n = 8, gap = 0.035) {
+  for (let i = n; i >= 1; i--) {
+    const [x, y] = fn(lt - i * gap);
+    a.globalAlpha = (1 - i / (n + 1)) * 0.6;
+    R(x - 2, y - 2, 4, 4, C.yellow);
+  }
+  a.globalAlpha = 1;
+}
+
+// ===== Fonlar =====
+function stars(lt, n = 60, maxY = 240) {
+  for (let i = 0; i < n; i++) {
+    const tw = 0.5 + 0.5 * Math.sin(lt * 3 + i);
+    a.globalAlpha = 0.3 + 0.7 * tw * rnd(i + 7);
+    R(rnd(i) * W, rnd(i + 100) * maxY, 1, 1, '#ffffff');
+  }
+  a.globalAlpha = 1;
+}
+function room(lt) {
+  R(0, 0, W, H, C.wall);
+  for (let x = 0; x < W; x += 18) R(x, 0, 2, 330, C.wall2);
+  // deraza
+  R(16, 148, 78, 88, '#5a4a8a'); R(20, 152, 70, 80, C.night);
+  a.save(); a.beginPath(); a.rect(20, 152, 70, 80); a.clip(); a.translate(20, 152);
+  for (let i = 0; i < 18; i++) { a.globalAlpha = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(lt * 2 + i)); R(rnd(i + 3) * 70, rnd(i + 40) * 80, 1, 1, '#fff'); }
+  a.globalAlpha = 1; R(48, 12, 10, 10, C.paper); R(46, 14, 2, 6, C.paper); R(58, 14, 2, 6, C.paper);
+  R(0, 62, 70, 18, '#141a3d'); R(8, 54, 12, 26, '#141a3d'); R(40, 50, 14, 30, '#141a3d');
+  R(11, 58, 2, 2, C.yellow); R(44, 56, 2, 2, C.yellow); R(48, 64, 2, 2, C.yellow);
+  a.restore();
+  R(54, 152, 2, 80, '#5a4a8a'); R(20, 190, 70, 2, '#5a4a8a');
+  // pol va stol
+  R(0, 400, W, 80, '#1a1433'); for (let x = 0; x < W; x += 30) R(x, 400, 1, 80, '#221a40');
+  R(30, 330, 210, 7, '#8a5a3a'); R(30, 337, 210, 3, '#5e3b24');
+  R(40, 340, 6, 60, '#5e3b24'); R(224, 340, 6, 60, '#5e3b24');
+  // chiroq
+  R(206, 290, 3, 40, '#9a8f7a'); R(196, 326, 22, 4, '#9a8f7a');
+  R(196, 278, 22, 14, C.orange); glow(207, 300, 50, 'rgba(255,190,90,0.8)', 0.25);
+  // tokcha + router
+  R(170, 232, 80, 5, '#8a5a3a');
+  R(192, 216, 42, 16, '#333a5c'); R(192, 216, 42, 3, '#47507a');
+  R(196, 200, 2, 16, '#47507a'); R(228, 200, 2, 16, '#47507a');
+  for (let i = 0; i < 4; i++) R(198 + i * 8, 225, 3, 2, (Math.floor(lt * 8 + i * 3) % 3) ? C.green : '#1c5a2a');
+}
+function laptop(lt) {
+  R(98, 260, 76, 64, '#2d3350'); R(102, 264, 68, 56, '#e8f0ff');
+  glow(136, 292, 60, 'rgba(160,200,255,0.9)', 0.2);
+  R(90, 324, 92, 6, '#9aa3c7'); R(90, 329, 92, 2, '#6b7398');
+}
+
+// ===== Sahnalar =====
+const SCENES = [
+  { // 0 — kirish
+    d: 5,
+    art(lt, p) { room(lt); laptop(lt);
+      if (p > 0.72) { const k = backOut(seg(p, 0.72, 0.85)); packet(136, lerp(292, 236, k), lt, 2); }
+    },
+    hud(lt, p) {
+      const k = easeOut(clamp(lt / 0.5));
+      o.globalAlpha = 0.85 * k; o.fillStyle = '#05060f'; o.fillRect(60, 90, 960, 430); o.globalAlpha = 1;
+      o.fillStyle = C.pink; o.fillRect(60, 90, 960 * k, 10); o.fillRect(60, 510, 960 * k, 10);
+      T('INTERNET', 540, 200, 92, C.yellow, 'Press Start 2P', 'center', k);
+      T('QANDAY', 540, 315, 60, C.white, 'Press Start 2P', 'center', k);
+      T('ISHLAYDI?', 540, 395, 60, C.white, 'Press Start 2P', 'center', k);
+      T('saytni ochgan 1 soniyangizda nima bo\'ladi', 540, 470, 46, C.cyan, 'VT323', 'center', k);
+      browser(lt, seg(p, 0.25, 0.62), p < 0.7);
+    }
+  },
+  { // 1 — so'rov / Wi-Fi
+    d: 5.5,
+    path(t) {
+      const p = t / 5.5;
+      if (p < 0.4) { const k = easeInOut(seg(p, 0.05, 0.4)); return [lerp(136, 213, k), lerp(240, 196, k) - Math.sin(k * Math.PI) * 70]; }
+      if (p < 0.66) return [213, 196 + Math.sin(t * 6) * 2];
+      const k = easeInOut(seg(p, 0.66, 1)); return [lerp(213, 150, k), lerp(196, -30, k)];
+    },
+    art(lt, p) { room(lt); laptop(lt);
+      if (p > 0.36 && p < 0.8) {
+        for (let i = 0; i < 3; i++) {
+          const r = ((lt * 1.2 + i / 3) % 1);
+          a.globalAlpha = 1 - r; a.strokeStyle = C.cyan; a.lineWidth = 2;
+          a.beginPath(); a.arc(213, 210, 10 + r * 50, Math.PI * 1.15, Math.PI * 1.85); a.stroke();
+        }
+        a.globalAlpha = 1;
+      }
+      trail(t => this.path(t), lt); const [x, y] = this.path(lt); packet(x, y, lt, 2);
+    },
+    hud(lt, p) {
+      browser(lt, 1, false);
+      title(lt, [['1. ', C.yellow], ['SO\'ROV', C.white]], 'Brauzer xat yozadi:', '"Menga sahifani yubor!"');
+      const [x, y] = this.path(lt);
+      if (y > 20) T('GET /', x * S, (y - 24) * S, 48, C.yellow, 'VT323');
+      if (p > 0.4 && p < 0.7) T('Wi-Fi router', 213 * S, 250 * S, 44, C.green, 'VT323');
+    }
+  },
+  { // 2 — DNS
+    d: 5.5,
+    path(t) {
+      const p = t / 5.5;
+      if (p < 0.25) { const k = easeOut(seg(p, 0, 0.25)); return [lerp(-20, 60, k), lerp(380, 150, k)]; }
+      if (p < 0.72) return [60, 150 + Math.sin(t * 5) * 2];
+      const k = easeInOut(seg(p, 0.72, 1)); return [lerp(60, 300, k), lerp(150, 140, k) - Math.sin(k * Math.PI) * 40];
+    },
+    art(lt, p) {
+      R(0, 0, W, H, '#0f1a3a');
+      const off = (lt * 8) % 16;
+      for (let x = -16; x < W + 16; x += 16) R(x + off, 0, 1, H, '#17265a');
+      for (let y = 0; y < H; y += 16) R(0, y, W, 1, '#17265a');
+      // katalog paneli
+      R(28, 178, 214, 196, '#3b4a8a'); R(32, 182, 206, 188, '#0b1230');
+      R(32, 182, 206, 14, '#2a3670');
+      for (let i = 0; i < 3; i++) R(38 + i * 7, 187, 4, 4, [C.pink, C.yellow, C.green][i]);
+      R(60, 374, 150, 10, '#3b4a8a'); R(80, 384, 110, 16, '#2a3670');
+      trail(t => this.path(t), lt); const [x, y] = this.path(lt); packet(x, y, lt, 2);
+    },
+    hud(lt, p) {
+      title(lt, [['2. ', C.yellow], ['DNS', C.cyan]], 'Internetning telefon kitobi', 'sayt nomi  ->  IP manzil');
+      const rows = [['youtube.com', '142.250.185.14'], ['telegram.org', '149.154.167.99'], ['wikipedia.org', '185.15.59.224'],
+        ['github.com', '140.82.121.4'], ['google.com', '142.250.74.46'], ['openai.com', '104.18.33.45'], ['amazon.com', '52.94.236.248']];
+      T('QIDIRILMOQDA: google.com', 140 * S, 189 * S, 36, C.white, 'VT323', 'left');
+      const hl = Math.min(4, Math.floor(seg(p, 0.22, 0.55) * 4.99));
+      const found = p > 0.55;
+      rows.forEach(([n, ip], i) => {
+        const yy = (212 + i * 22) * S;
+        if (i === hl) { o.fillStyle = found ? C.yellow : 'rgba(77,225,255,0.35)'; o.fillRect(36 * S, yy - 36, 198 * S, 72); }
+        const col = (i === hl && found) ? C.dark : C.white;
+        o.font = '44px "VT323"'; o.textAlign = 'left'; o.fillStyle = col; o.fillText(n, 42 * S, yy);
+        o.textAlign = 'right'; o.fillText(ip, 232 * S, yy);
+      });
+      const [x, y] = this.path(lt);
+      if (found) { const k = backOut(seg(p, 0.55, 0.65)); o.save(); o.translate(x * S, (y - 24) * S); o.scale(k, k); T('142.250.74.46', 0, 0, 44, C.yellow, 'VT323'); o.restore(); }
+      else T('google.com ?', x * S, (y - 24) * S, 40, C.white, 'VT323');
+    }
+  },
+  { // 3 — okean kabeli
+    d: 6,
+    art(lt, p) {
+      const g = a.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#0b1030'); g.addColorStop(0.27, '#1d2a6b'); g.addColorStop(0.28, '#0c4a7a'); g.addColorStop(1, '#03101f');
+      a.fillStyle = g; a.fillRect(0, 0, W, H);
+      stars(lt, 30, 120); R(236, 112, 10, 10, C.paper);
+      for (let x = 0; x < W; x += 4) R(x, 132 + Math.round(Math.sin(x * 0.15 + lt * 3) * 2), 4, 3, '#7fd4ff');
+      // nur nurlari
+      a.globalAlpha = 0.07; for (let i = 0; i < 4; i++) { a.fillStyle = '#bfe8ff'; a.beginPath(); const bx = 40 + i * 60 + Math.sin(lt + i) * 6; a.moveTo(bx, 135); a.lineTo(bx + 20, 135); a.lineTo(bx + 60, 400); a.lineTo(bx + 20, 400); a.fill(); } a.globalAlpha = 1;
+      // baliqlar
+      for (let i = 0; i < 6; i++) {
+        const fy = 170 + rnd(i + 20) * 170, sp = 18 + rnd(i + 30) * 20;
+        const fx = W + 20 - ((lt * sp + rnd(i + 40) * 300) % (W + 60));
+        const col = [C.orange, C.pink, C.yellow, '#8affc1', C.orange, C.cyan][i];
+        R(fx, fy, 10, 5, col); R(fx + 10, fy - 2 + (Math.floor(lt * 6) % 2), 3, 9, col); R(fx + 2, fy + 1, 1, 1, C.dark);
+      }
+      // pufakchalar
+      for (let i = 0; i < 14; i++) { const bx = rnd(i + 60) * W + Math.sin(lt * 2 + i) * 3; const by = 420 - ((lt * (15 + rnd(i) * 15) + rnd(i + 70) * 300) % 290); R(bx, by, 2, 2, 'rgba(200,240,255,0.6)'); }
+      // tub, suv o'tlari
+      R(0, 420, W, 60, '#2e2a1c'); for (let x = 0; x < W; x += 7) R(x, 418 + rnd(x) * 4, 5, 3, '#3d3826');
+      for (let i = 0; i < 9; i++) { const sx = 10 + i * 30; for (let j = 0; j < 7; j++) R(sx + Math.round(Math.sin(lt * 2 + j * 0.6 + i) * 2), 418 - j * 5, 3, 5, '#2f7a4a'); }
+      // kabel
+      R(-5, 391, W + 10, 9, '#15161f'); R(-5, 392, W + 10, 2, '#3a3c52');
+      for (let i = 0; i < 9; i++) { const lx = (lt * 260 + i * 34) % (W + 40) - 20; R(lx, 395, 10, 2, C.cyan); glow(lx + 5, 396, 8, 'rgba(77,225,255,1)', 0.5); }
+      const k = seg(p, 0.08, 0.9); const px = lerp(-20, W + 20, easeInOut(k));
+      for (let i = 1; i < 10; i++) { a.globalAlpha = 0.5 - i * 0.05; R(px - i * 7, 394, 6, 3, C.yellow); } a.globalAlpha = 1;
+      packet(px, 374, lt, 2);
+    },
+    hud(lt, p) {
+      title(lt, [['3. ', C.yellow], ['KABEL', C.cyan]], 'Okean tubidagi optik tola', 'yorug\'lik 200 000 km/s tezlikda');
+      T('dunyo bo\'ylab 1,4 mln km kabel', 540, 1180, 54, '#bfe8ff', 'VT323');
+    }
+  },
+  { // 4 — server
+    d: 5.5,
+    path(t) { const p = t / 5.5; const k = easeOut(seg(p, 0, 0.3)); return [lerp(300, 135, k), lerp(130, 260, k)]; },
+    art(lt, p) {
+      R(0, 0, W, H, '#0e0f1f');
+      for (let y = 400; y < H; y += 10) R(0, y, W, 1, '#1c1e38'); R(0, 398, W, 3, '#26294a');
+      const burst = p > 0.4;
+      for (let r = 0; r < 3; r++) {
+        const rx = 22 + r * 78;
+        R(rx, 150, 70, 250, '#23263f'); R(rx + 3, 153, 64, 244, '#151729');
+        for (let u = 0; u < 15; u++) {
+          const uy = 158 + u * 16; R(rx + 6, uy, 58, 12, '#2c3050');
+          for (let l = 0; l < 4; l++) {
+            const on = rnd(r * 100 + u * 10 + l + Math.floor(lt * (r === 1 && burst ? 14 : 5)) * 0.37) > 0.45;
+            const col = [C.green, C.cyan, C.orange, C.green][l];
+            R(rx + 10 + l * 5, uy + 5, 2, 2, on ? col : '#1a1d33');
+          }
+          R(rx + 36, uy + 4, 24, 4, '#1d2038');
+        }
+      }
+      if (burst) glow(135, 270, 70, 'rgba(77,225,255,1)', 0.25 * (1 - seg(p, 0.4, 0.8)));
+      if (p < 0.42) {
+        const s = 2 - easeInOut(seg(p, 0.3, 0.42)) * 1.5;
+        trail(t => this.path(t), lt); const [x, y] = this.path(lt); packet(x, y, lt, s);
+      }
+      if (burst) this.kids(lt, p).forEach(([x, y]) => packet(x, y, lt + 0.3, 2, '#d8f6ff'));
+    },
+    kids(lt, p) {
+      const res = [];
+      for (let i = 0; i < 6; i++) {
+        const k = easeOut(seg(p, 0.42 + i * 0.03, 0.75 + i * 0.03));
+        const ang = Math.PI * (0.62 + i * 0.16);
+        res.push([135 + Math.cos(ang) * 100 * k, 270 - Math.sin(ang) * 90 * k + 50 * k]);
+      }
+      return res;
+    },
+    hud(lt, p) {
+      title(lt, [['4. ', C.yellow], ['SERVER', C.green]], 'Ma\'lumotlar markazi', 'javobni bo\'laklarga bo\'ladi');
+      if (p > 0.42) {
+        const labs = ['HTML', 'CSS', 'JS', 'RASM', 'SHRIFT', 'IKONKA'];
+        this.kids(lt, p).forEach(([x, y], i) => T(labs[i], x * S, (y - 22) * S, 48, C.cyan, 'VT323', 'center', seg(p, 0.45 + i * 0.03, 0.55 + i * 0.03)));
+      }
+    }
+  },
+  { // 5 — sahifa yig'iladi
+    d: 7,
+    blocks: [
+      [41, 176, 188, 14, '#4d7cff'], [48, 198, 88, 52, '#ffb347'], [144, 200, 78, 7, '#2d3350'], [144, 213, 58, 5, '#9aa3c7'],
+      [144, 223, 70, 5, '#9aa3c7'], [144, 236, 40, 12, '#ff5c8a'], [48, 258, 54, 34, '#e3e8ff'], [108, 258, 54, 34, '#e3e8ff'], [168, 258, 54, 34, '#e3e8ff']
+    ],
+    art(lt, p) {
+      R(0, 0, W, H, C.wall); for (let x = 0; x < W; x += 18) R(x, 0, 2, 340, C.wall2);
+      R(0, 330, W, 8, '#8a5a3a'); R(0, 338, W, 142, '#1a1433');
+      R(33, 168, 204, 140, '#2d3350'); R(41, 176, 188, 124, '#ffffff');
+      R(20, 308, 230, 10, '#9aa3c7'); R(20, 317, 230, 3, '#6b7398');
+      glow(135, 240, 140, 'rgba(160,200,255,0.9)', 0.15);
+      this.blocks.forEach(([x, y, w, h, col], i) => {
+        const st = 0.04 + i * 0.065, land = st + 0.1;
+        if (p > land) {
+          const k = backOut(seg(p, land, land + 0.06));
+          R(x + w / 2 * (1 - k), y + h / 2 * (1 - k), w * k, h * k, col);
+          if (i === 1 && k > 0.9) { R(x + 8, y + 36, 70, 16, '#7a4a2a'); a.fillStyle = '#5b3a8a'; a.beginPath(); a.moveTo(x + 10, y + 40); a.lineTo(x + 35, y + 12); a.lineTo(x + 60, y + 40); a.fill(); R(x + 64, y + 8, 10, 10, C.paper); }
+        } else if (p > st) {
+          const k = easeInOut(seg(p, st, land));
+          const sx = 290, sy = 120 + i * 6;
+          packet(lerp(sx, x + w / 2, k), lerp(sy, y + h / 2, k) - Math.sin(k * Math.PI) * 30, lt + i, 2, '#d8f6ff');
+        }
+      });
+    },
+    hud(lt, p) {
+      title(lt, [['5. ', C.yellow], ['SAHIFA', C.pink]], 'Paketlar qayta yig\'iladi');
+      if (p > 0.5) T('MySite', 50 * S, 183 * S, 40, '#ffffff', 'VT323', 'left', seg(p, 0.5, 0.55));
+      if (p > 0.72) {
+        const k = backOut(seg(p, 0.72, 0.8));
+        o.save(); o.translate(540, 1420); o.scale(k, k);
+        o.fillStyle = '#05060f'; o.globalAlpha = 0.85; o.fillRect(-470, -110, 940, 260); o.globalAlpha = 1;
+        o.fillStyle = C.yellow; o.fillRect(-470, -110, 940, 8); o.fillRect(-470, 142, 940, 8);
+        T('JAMI: 0.3 SONIYA', 0, -30, 54, C.yellow, 'Press Start 2P');
+        T('ko\'z ochib yumguncha!', 0, 60, 60, C.white, 'VT323');
+        o.restore();
+      }
+      if (p > 0.86) T('Obuna bo\'ling  >>  keyingi dars: HTML', 540, 1640, 48, C.cyan, 'VT323', 'center', seg(p, 0.86, 0.9));
+    }
+  }
+];
+const DURATION = SCENES.reduce((s, x) => s + x.d, 0);
+
+// Brauzer qatori (birinchi sahnalarda noutbuk ekranida)
+function browser(lt, typed, cursor) {
+  const x = 104 * S, y = 266 * S;
+  o.fillStyle = '#d5dcf0'; o.fillRect(x, y, 64 * S, 40);
+  o.fillStyle = '#ffffff'; o.fillRect(x + 14, y + 6, 64 * S - 28, 28);
+  const txt = 'google.com'.slice(0, Math.floor(typed * 10 + 0.001));
+  o.font = '30px "VT323"'; o.textAlign = 'left'; o.textBaseline = 'middle'; o.fillStyle = '#222';
+  o.fillText(txt + (cursor && (lt % 0.8) < 0.4 ? '|' : ''), x + 22, y + 21);
+  o.fillStyle = '#c9d2ec';
+  for (let i = 0; i < 4; i++) o.fillRect(x + 20, y + 70 + i * 34, (i % 2 ? 150 : 210), 14);
+}
+
+// Pastki panel: vaqt hisoblagichi va 5 qadam
+function hudBar(t) {
+  const y = 1740;
+  o.fillStyle = 'rgba(5,6,15,0.9)'; o.fillRect(40, y, 1000, 150);
+  o.fillStyle = '#2a3670'; o.fillRect(40, y, 1000, 6);
+  const start = SCENES[0].d, end = DURATION - SCENES[5].d * 0.3;
+  const ms = easeInOut(seg(t, start, end)) * 0.3;
+  T('VAQT', 80, y + 50, 26, '#8b93c7', 'Press Start 2P', 'left');
+  T(ms.toFixed(3) + ' s', 80, y + 105, 44, C.yellow, 'Press Start 2P', 'left');
+  let acc = 0;
+  for (let i = 0; i < 5; i++) {
+    acc += SCENES[i].d;
+    const on = t >= acc;
+    const cx = 560 + i * 100, cy = y + 60;
+    o.fillStyle = on ? [C.yellow, C.cyan, C.cyan, C.green, C.pink][i] : '#22264a';
+    o.beginPath(); o.arc(cx, cy, 26, 0, Math.PI * 2); o.fill();
+    T(String(i + 1), cx, cy + 2, 26, on ? C.dark : '#5a6090', 'Press Start 2P', 'center');
+    T(['so\'rov', 'DNS', 'kabel', 'server', 'sahifa'][i], cx, y + 118, 34, on ? C.white : '#5a6090', 'VT323');
+  }
+  
+}
+
+// Sahnalar orasidagi piksel o'tish effekti
+function pixelWipe(k) {
+  if (k >= 1) return;
+  const b = 15;
+  for (let gy = 0; gy < H / b; gy++) for (let gx = 0; gx < W / b; gx++)
+    if (rnd(gx * 31 + gy * 7) > k) R(gx * b, gy * b, b, b, '#05060f');
+}
+
+function renderFrame(t) {
+  let acc = 0, i = 0;
+  while (i < SCENES.length - 1 && t >= acc + SCENES[i].d) { acc += SCENES[i].d; i++; }
+  const sc = SCENES[i], lt = t - acc, p = clamp(lt / sc.d);
+  a.clearRect(0, 0, W, H);
+  sc.art(lt, p);
+  if (i > 0) pixelWipe(lt / 0.35);
+  o.imageSmoothingEnabled = false;
+  o.drawImage(art, 0, 0, W * S, H * S);
+  if (i === 0 || lt > 0.2) sc.hud(lt, p);
+  hudBar(t);
+  // oxirida qorong'ilashish
+  const f = seg(t, DURATION - 0.5, DURATION);
+  if (f > 0) { o.globalAlpha = f; o.fillStyle = '#000'; o.fillRect(0, 0, W * S, H * S); o.globalAlpha = 1; }
+}
+
+window.DURATION = DURATION;
+window.renderFrame = renderFrame;
+window.ready = Promise.all([
+  document.fonts.load('40px "Press Start 2P"'), document.fonts.load('40px "VT323"')
+]);
+
+// Brauzerda ochilganda — cheksiz takrorlanadigan pleer
+if (!location.search.includes('render')) {
+  window.ready.then(() => {
+    const t0 = performance.now();
+    (function loop() { renderFrame(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(loop); })();
+  });
+}
+</script>
+</body>
+</html>
