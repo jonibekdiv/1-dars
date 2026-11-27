@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inside a Rocket Engine</title>
+<style>
+  @font-face { font-family: "Press Start 2P"; src: url("fonts/PressStart2P-Regular.ttf"); }
+  @font-face { font-family: "VT323"; src: url("fonts/VT323-Regular.ttf"); }
+  html, body { margin: 0; height: 100%; background: #05060f; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { height: 100vh; max-width: 100vw; aspect-ratio: 9 / 16; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Piksel-art: rasm 270x480 da chiziladi, 4x kattalashtiriladi; matnlar 1080x1920 da.
+const W = 270, H = 480, S = 4;
+const art = document.createElement('canvas'); art.width = W; art.height = H;
+const a = art.getContext('2d');
+const out = document.getElementById('c'); out.width = W * S; out.height = H * S;
+const o = out.getContext('2d');
+
+const C = {
+  yellow: '#ffd23f', cyan: '#4de1ff', pink: '#ff5c8a', green: '#6bff8f', red: '#ff4d4d',
+  white: '#f4f1ff', dark: '#0a0a14', orange: '#ff9f43', blue: '#4d7cff',
+  lox: '#3fa9ff', fuel: '#ff8a1f', shell: '#e9ecf5', shell2: '#c3c8da', band: '#22243a'
+};
+
+// ===== Yordamchilar =====
+const clamp = (v, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, v));
+const lerp = (x, y, k) => x + (y - x) * k;
+const seg = (p, s, e) => clamp((p - s) / (e - s));
+const easeOut = k => 1 - Math.pow(1 - k, 3);
+const easeIn = k => k * k;
+const easeInOut = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+const backOut = k => { const c = 1.9; return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2); };
+function rnd(i) { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+function R(x, y, w, h, col) { a.fillStyle = col; a.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); }
+function circ(x, y, r, col) { a.fillStyle = col; a.beginPath(); a.arc(x, y, Math.max(0, r), 0, Math.PI * 2); a.fill(); }
+function poly(pts, col) { a.fillStyle = col; a.beginPath(); a.moveTo(pts[0][0], pts[0][1]); for (const [x, y] of pts.slice(1)) a.lineTo(x, y); a.closePath(); a.fill(); }
+function glow(x, y, r, col, alpha) {
+  const g = a.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+  a.globalAlpha = alpha; a.fillStyle = g; a.fillRect(x - r, y - r, r * 2, r * 2); a.globalAlpha = 1;
+}
+function sky(top, bot) { const g = a.createLinearGradient(0, 0, 0, H); g.addColorStop(0, top); g.addColorStop(1, bot); a.fillStyle = g; a.fillRect(0, 0, W, H); }
+function stars(lt, alpha = 1, n = 80) {
+  for (let i = 0; i < n; i++) {
+    a.globalAlpha = alpha * (0.3 + 0.7 * (0.5 + 0.5 * Math.sin(lt * 2.5 + i * 1.7)) * rnd(i + 9));
+    R(rnd(i) * W, rnd(i + 200) * H, rnd(i + 5) > 0.85 ? 2 : 1, 1, '#ffffff');
+  }
+  a.globalAlpha = 1;
+}
+function cloud(x, y, w, alpha = 1, col = '#ffffff') {
+  a.globalAlpha = alpha;
+  circ(x, y, w * 0.28, col); circ(x - w * 0.28, y + w * 0.06, w * 0.2, col); circ(x + w * 0.3, y + w * 0.05, w * 0.22, col);
+  R(x - w * 0.5, y + w * 0.05, w, w * 0.2, col);
+  a.globalAlpha = 1;
+}
+function arrow(x1, y1, x2, y2, col, wd = 3) {
+  const ang = Math.atan2(y2 - y1, x2 - x1);
+  a.strokeStyle = col; a.fillStyle = col; a.lineWidth = wd;
+  a.beginPath(); a.moveTo(x1, y1); a.lineTo(x2 - Math.cos(ang) * 6, y2 - Math.sin(ang) * 6); a.stroke();
+  a.beginPath(); a.moveTo(x2, y2);
+  a.lineTo(x2 - Math.cos(ang - 0.5) * 11, y2 - Math.sin(ang - 0.5) * 11);
+  a.lineTo(x2 - Math.cos(ang + 0.5) * 11, y2 - Math.sin(ang + 0.5) * 11); a.fill();
+}
+function grid(bg, line, off = 0) {
+  R(0, 0, W, H, bg);
+  for (let x = 0; x < W; x += 15) R(x, 0, 1, H, line);
+  for (let y = (off % 15); y < H; y += 15) R(0, y, W, 1, line);
+}
+function liquid(x, y, w, h, col, lt, level = 0.88) {
+  const top = y + h * (1 - level);
+  R(x, top, w, y + h - top, col);
+  for (let i = 0; i < w; i += 2) R(x + i, top - 1 + Math.round(Math.sin(i * 0.4 + lt * 5) * 1), 2, 2, col);
+  a.globalAlpha = 0.25; R(x + 2, top + 2, 3, y + h - top - 4, '#ffffff'); a.globalAlpha = 1;
+}
+
+// ===== Hi-res matn =====
+function T(s, x, y, size, col, font = 'VT323', align = 'center', alpha = 1) {
+  if (alpha <= 0) return;
+  o.globalAlpha = alpha;
+  o.font = `${size}px "${font}"`; o.textAlign = align; o.textBaseline = 'middle';
+  const sh = Math.max(3, Math.round(size * 0.08));
+  o.fillStyle = '#000'; o.fillText(s, x + sh, y + sh);
+  o.fillStyle = col; o.fillText(s, x, y);
+  o.globalAlpha = 1;
+}
+function TS(parts, cx, y, size, font, alpha = 1) {
+  o.font = `${size}px "${font}"`;
+  const total = parts.reduce((s, [t]) => s + o.measureText(t).width, 0);
+  let x = cx - total / 2;
+  for (const [t, col] of parts) { T(t, x, y, size, col, font, 'left', alpha); o.font = `${size}px "${font}"`; x += o.measureText(t).width; }
+}
+function title(lt, head, line, sub) {
+  const k = easeOut(clamp(lt / 0.45));
+  const y0 = lerp(60, 150, k);
+  o.globalAlpha = k * 0.85; o.fillStyle = '#05060f';
+  o.fillRect(70, y0 - 70, 940, sub ? 330 : 250);
+  o.globalAlpha = k; o.fillStyle = C.yellow;
+  o.fillRect(70, y0 - 70, 940, 8); o.fillRect(70, y0 + (sub ? 252 : 172), 940, 8);
+  o.globalAlpha = 1;
+  TS(head, 540, y0, 54, 'Press Start 2P', k);
+  T(line, 540, y0 + 95, 62, C.white, 'VT323', 'center', k);
+  if (sub) T(sub, 540, y0 + 170, 54, C.cyan, 'VT323', 'center', k);
+}
+// Qism nomi: chiziqcha bilan ko'rsatiladi (art koordinatalarida)
+function callout(text, px, py, side, col, alpha, sub) {
+  if (alpha <= 0) return;
+  const k = easeOut(alpha);
+  const lx = side < 0 ? 74 : 196;
+  o.globalAlpha = k; o.strokeStyle = col; o.lineWidth = 6;
+  o.beginPath(); o.moveTo(px * S, py * S); o.lineTo(lerp(px, lx, k) * S, py * S); o.stroke();
+  o.fillStyle = col; o.fillRect(px * S - 9, py * S - 9, 18, 18);
+  o.font = '50px "VT323"';
+  const w = o.measureText(text).width + 28;
+  const bx = side < 0 ? lx * S - w : lx * S;
+  o.fillStyle = 'rgba(5,6,15,0.9)'; o.fillRect(bx, py * S - 32, w, sub ? 104 : 64);
+  o.fillStyle = col; o.fillRect(bx, py * S - 32, 6, sub ? 104 : 64);
+  o.globalAlpha = 1;
+  T(text, bx + 18, py * S, 50, col, 'VT323', 'left', k);
+  if (sub) T(sub, bx + 18, py * S + 46, 40, C.white, 'VT323', 'left', k);
+}
+function tag(s, x, y, col, size = 44, alpha = 1) { T(s, x * S, y * S, size, col, 'VT323', 'center', alpha); }
+
+// ===== Raketa qismlari (mahalliy koordinatalar: burun uchi (0,0), pastga qarab +y) =====
+// fairing 0-50 · yuk 18-46 · 2-bosqich 50-100 (+dvigatel 100-112) · oraliq 100-117
+// 1-bosqich 117-285 (+3 dvigatel 285-303) · yon boosterlar x=±25, y 160-302
+function flame(x, y, w, len, kind, t, seed = 0) {
+  if (len <= 0) return;
+  const fl = 0.85 + 0.15 * Math.sin(t * 47 + seed) + 0.1 * Math.sin(t * 31 + seed * 2);
+  len *= fl;
+  const outer = kind === 'blue' ? 'rgba(90,160,255,0.85)' : 'rgba(255,120,40,0.95)';
+  const inner = kind === 'blue' ? '#dff3ff' : '#fff3a0';
+  poly([[x - w / 2, y], [x + w / 2, y], [x, y + len]], outer);
+  poly([[x - w / 4, y], [x + w / 4, y], [x, y + len * 0.55]], inner);
+}
+function fairingHalf(side, cut) {
+  a.beginPath(); a.moveTo(0, 0); a.quadraticCurveTo(side * 17, 12, side * 17, 40); a.lineTo(side * 17, 50); a.lineTo(0, 50); a.closePath();
+  if (cut) { a.fillStyle = '#141a38'; a.fill(); a.strokeStyle = C.shell; a.lineWidth = 2; a.stroke(); }
+  else { a.fillStyle = side < 0 ? C.shell2 : C.shell; a.fill(); a.fillStyle = C.band; a.fillRect(side < 0 ? -17 : 0, 44, 17, 2); }
+}
+function payload(panels, lt) {
+  if (panels > 0) {
+    const pw = 34 * panels;
+    for (const sd of [-1, 1]) {
+      const x0 = sd < 0 ? -8 - pw : 8;
+      R(x0, 29, pw, 9, '#2c4fa8');
+      for (let i = 4; i < pw; i += 5) R(sd < 0 ? -8 - i : 8 + i, 29, 1, 9, '#9fc4ff');
+      R(x0, 33, pw, 1, '#9fc4ff');
+    }
+  }
+  R(-8, 22, 16, 22, '#d9a93a'); R(-8, 22, 4, 22, '#b3842a');
+  R(-6, 26, 12, 1, '#8a6420'); R(-6, 32, 12, 1, '#8a6420'); R(-6, 38, 12, 1, '#8a6420');
+  R(-1, 16, 2, 6, '#9aa3c7'); circ(0, 16, 3, '#cfd5ea');
+  if ((lt % 1) < 0.5) R(5, 24, 2, 2, C.green);
+}
+function stage2(cut, fl, lt) {
+  flame(0, 112, 14, fl * 55, 'blue', lt, 3);
+  poly([[-4, 100], [4, 100], [8, 112], [-8, 112]], '#6b7090');
+  R(-17, 50, 34, 50, C.shell); R(-17, 50, 6, 50, C.shell2);
+  if (cut) {
+    R(-14, 53, 28, 44, '#141a38');
+    liquid(-14, 53, 28, 20, C.lox, lt, 0.85); R(-14, 74, 28, 2, '#9aa3c7');
+    liquid(-14, 76, 28, 20, C.fuel, lt + 1, 0.85);
+  } else { R(-17, 62, 34, 3, C.band); }
+}
+function stage1(cut, fl, lt) {
+  for (const x of [-11, 0, 11]) flame(x, 303, 12, fl * 80, 'orange', lt, x);
+  R(-17, 100, 34, 17, '#2a2d40'); R(-17, 100, 34, 2, '#3b4160');
+  R(-17, 117, 34, 168, C.shell); R(-17, 117, 6, 168, C.shell2);
+  if (cut) {
+    R(-14, 120, 28, 162, '#141a38');
+    liquid(-14, 121, 28, 64, C.lox, lt, 0.9);
+    R(-14, 186, 28, 2, '#9aa3c7');
+    liquid(-14, 189, 28, 64, C.fuel, lt + 2, 0.9);
+    R(-14, 255, 28, 27, '#20243c');
+    R(-9, 255, 3, 27, '#5aa8ff'); R(6, 255, 3, 27, '#ff9a3a'); R(-12, 270, 24, 6, '#5a6080');
+  } else {
+    R(-17, 150, 34, 4, C.band); R(-17, 250, 34, 4, C.band);
+    R(-6, 190, 12, 30, '#ffffff'); R(-4, 195, 8, 2, C.red); R(-4, 200, 8, 2, C.blue);
+  }
+  for (const x of [-11, 0, 11]) poly([[x - 3, 285], [x + 3, 285], [x + 5, 303], [x - 5, 303]], '#5a5f7a');
+}
+function booster(side, cut, fl, lt) {
+  const cx = side * 25;
+  flame(cx, 302, 12, fl * 70, 'orange', lt, side * 9);
+  poly([[cx - 7, 175], [cx, 158], [cx + 7, 175]], C.shell);
+  R(cx - 7, 175, 14, 115, C.shell); R(cx - 7, 175, 4, 115, C.shell2);
+  if (cut) { R(cx - 5, 178, 10, 110, '#b7708a'); R(cx - 1, 178, 2, 110, '#3b1d2a'); }
+  else { R(cx - 7, 200, 14, 3, C.band); R(cx - 7, 270, 14, 3, C.band); }
+  poly([[cx - 4, 290], [cx + 4, 290], [cx + 6, 302], [cx - 6, 302]], '#5a5f7a');
+}
+// Qism transformatsiyasi: siljish (dx,dy) va burilish (r) pivot atrofida
+function piece(off, px, py, fn) {
+  a.save();
+  if (off) { a.translate(px + (off.dx || 0), py + (off.dy || 0)); a.rotate(off.r || 0); a.translate(-px, -py); }
+  fn(); a.restore();
+}
+// Butun raketa. o: {cut, fl1, flB, fl2, boost:false|off, s1:false|off, fairL, fairR, pay, s2, panels}
+function rocket(x, y, sc, lt, o2 = {}) {
+  a.save(); a.translate(x, y); a.scale(sc, sc);
+  const cut = o2.cut || 0;
+  if (o2.boost !== false) for (const sd of [-1, 1]) piece(o2.boost && { dx: sd * o2.boost.dx, dy: o2.boost.dy, r: sd * o2.boost.r }, sd * 25, 230, () => booster(sd, cut, o2.flB || 0, lt));
+  if (o2.s1 !== false) piece(o2.s1, 0, 200, () => stage1(cut, o2.fl1 || 0, lt));
+  if (o2.s2 !== false) piece(o2.s2, 0, 80, () => stage2(cut, o2.fl2 || 0, lt));
+  piece(o2.pay, 0, 33, () => payload(o2.panels || 0, lt));
+  if (o2.fairL !== false) piece(o2.fairL, -17, 50, () => fairingHalf(-1, cut));
+  if (o2.fairR !== false) piece(o2.fairR, 17, 50, () => fairingHalf(1, cut));
+  a.restore();
+}
+
+// ===== Dvigatel sxemasi (2-5 sahnalar) =====
+const PUMP = [135, 240];
+const LOX_PATH = [[75, 198], [75, 240], [119, 240]];
+const FUEL_PATH = [[195, 198], [195, 240], [151, 240]];
+const FEED_PATH = [[135, 256], [135, 284]];
+const NOZ = [[112, 280], [158, 280], [158, 318], [144, 332], [177, 398], [93, 398], [126, 332], [112, 318]];
+function along(path, s) {
+  const lens = []; let tot = 0;
+  for (let i = 1; i < path.length; i++) { const l = Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]); lens.push(l); tot += l; }
+  let d = s * tot;
+  for (let i = 0; i < lens.length; i++) {
+    if (d <= lens[i]) { const k = d / lens[i]; return [lerp(path[i][0], path[i + 1][0], k), lerp(path[i][1], path[i + 1][1], k)]; }
+    d -= lens[i];
+  }
+  return path[path.length - 1];
+}
+function pipe(path) {
+  for (const [w, col] of [[8, '#5a6080'], [4, '#1a1d33']]) {
+    a.strokeStyle = col; a.lineWidth = w; a.lineJoin = 'round';
+    a.beginPath(); a.moveTo(path[0][0], path[0][1]); for (const p of path.slice(1)) a.lineTo(p[0], p[1]); a.stroke();
+  }
+}
+function flowDots(path, n, speed, lt, col, seed) {
+  for (let i = 0; i < n; i++) {
+    const s = (rnd(i + seed) + lt * speed) % 1;
+    const [x, y] = along(path, s); R(x - 1.5, y - 1.5, 3, 3, col);
+  }
+}
+function focusBox(x, y, w, h, lt) {
+  const al = 0.55 + 0.45 * Math.sin(lt * 6);
+  a.globalAlpha = al; a.strokeStyle = C.yellow; a.lineWidth = 2; a.setLineDash([4, 3]);
+  a.strokeRect(x, y, w, h); a.setLineDash([]); a.globalAlpha = 1;
+}
+// st: {flow, pumpAng, fire, exhaust, focus}
+function engine(lt, st) {
+  grid('#0d1024', '#151a38', lt * 6);
+  // idishlar
+  for (const [x, col, cold] of [[30, C.lox, true], [150, C.fuel, false]]) {
+    R(x - 3, 115, 96, 86, '#8a93b8'); R(x, 118, 90, 80, '#141a38');
+    liquid(x, 118, 90, 80, col, lt + x, 0.82 - st.flow * 0.04 * (lt % 6) / 6);
+    if (cold) for (let i = 0; i < 8; i++) { const age = (lt * 0.6 + i / 8) % 1; a.globalAlpha = 0.5 * (1 - age); circ(x + 10 + rnd(i) * 70, 115 - age * 20, 3 + age * 6, '#dff3ff'); a.globalAlpha = 1; }
+  }
+  pipe(LOX_PATH); pipe(FUEL_PATH); pipe(FEED_PATH);
+  const sp = 0.12 + st.flow * 0.9;
+  flowDots(LOX_PATH, 12, sp, lt, C.lox, 1); flowDots(FUEL_PATH, 12, sp, lt, C.fuel, 40);
+  if (st.flow > 0.3) { flowDots(FEED_PATH, 6, sp * 1.6, lt, C.lox, 80); flowDots(FEED_PATH, 6, sp * 1.6, lt + 0.05, C.fuel, 90); }
+  // nasos
+  circ(PUMP[0], PUMP[1], 18, '#3b4160'); circ(PUMP[0], PUMP[1], 15, '#141a38');
+  a.save(); a.translate(PUMP[0], PUMP[1]); a.rotate(st.pumpAng);
+  for (let b = 0; b < 6; b++) { a.rotate(Math.PI / 3); R(-1.5, -13, 3, 11, '#cfd5ea'); }
+  a.restore(); circ(PUMP[0], PUMP[1], 4, '#9aa3c7');
+  if (st.pumpGlow > 0) glow(PUMP[0], PUMP[1], 30, 'rgba(77,225,255,1)', 0.35 * st.pumpGlow);
+  // yonish kamerasi va soplo
+  poly(NOZ, '#8a93b8');
+  const inner = NOZ.map(([x, y]) => [lerp(x, 135, 0.12), y + (y === 280 ? 3 : y === 398 ? -2 : 0)]);
+  poly(inner, '#141a38');
+  R(113, 282, 44, 4, '#5a6080'); for (let i = 0; i < 7; i++) R(116 + i * 6, 286, 2, 2, '#9aa3c7');
+  if (st.fire > 0) {
+    a.save(); a.beginPath(); a.moveTo(inner[0][0], inner[0][1]); for (const p of inner.slice(1)) a.lineTo(p[0], p[1]); a.closePath(); a.clip();
+    a.globalAlpha = st.fire;
+    for (let i = 0; i < 40; i++) {
+      const age = (lt * 2.2 + rnd(i)) % 1;
+      const y = 290 + age * 110, wdt = y < 332 ? 18 : 10 + (y - 332) * 0.55;
+      const x = 135 + (rnd(i + 7) - 0.5) * 2 * wdt * (1 - age * 0.3);
+      circ(x, y, 7 - age * 3, age < 0.3 ? '#fff3a0' : age < 0.6 ? '#ffb030' : '#ff5a1f');
+    }
+    a.globalAlpha = 1; a.restore();
+    glow(135, 305, 60, 'rgba(255,170,60,1)', 0.45 * st.fire);
+  }
+  // chiqayotgan gaz oqimi
+  if (st.exhaust > 0) {
+    a.globalAlpha = 0.85 * st.exhaust;
+    poly([[95, 398], [175, 398], [200, 440], [70, 440]], 'rgba(255,130,40,0.55)');
+    poly([[115, 398], [155, 398], [150, 440], [120, 440]], 'rgba(255,240,170,0.8)');
+    for (let i = 0; i < 4; i++) { const y = 404 + i * 9 + ((lt * 40) % 9); poly([[135, y - 4], [141, y], [135, y + 4], [129, y]], '#fff6c8'); }
+    for (let i = 0; i < 24; i++) {
+      const age = (lt * 3 + rnd(i + 3)) % 1, x = 135 + (rnd(i) - 0.5) * (40 + age * 90);
+      R(x, 398 + age * 45, 2, 4 + age * 6, '#ffe8a0');
+    }
+    a.globalAlpha = 1;
+  }
+  if (st.focus === 'tanks') { focusBox(24, 110, 108, 96, lt); focusBox(144, 110, 108, 96, lt); }
+  if (st.focus === 'pump') focusBox(110, 215, 50, 50, lt);
+  if (st.focus === 'chamber') focusBox(104, 274, 62, 64, lt);
+  if (st.focus === 'nozzle') focusBox(88, 326, 94, 78, lt);
+}
+
+// ===== Sahnalar =====
+const BPM = 120, BAR = 60 / BPM * 4; // musiqa bilan bir xil: sahnalar takt chegarasida almashadi
+const SCENES = [
+  { // 0 — kirish
+    d: 4, key: 'intro', amp: 0.05,
+    art(lt, p) { pad(lt); rocket(135, 140, 0.92, lt, {});
+      if (p > 0.45) { const r = 26 + Math.sin(lt * 8) * 2; a.strokeStyle = C.yellow; a.lineWidth = 3; a.globalAlpha = seg(p, 0.45, 0.55); a.beginPath(); a.arc(135, 405, r, 0, Math.PI * 2); a.stroke(); R(150, 425, 4, 4, C.yellow); a.globalAlpha = 1; }
+    },
+    hud(lt, p) {
+      const k = easeOut(clamp(lt / 0.5));
+      o.globalAlpha = 0.85 * k; o.fillStyle = '#05060f'; o.fillRect(60, 80, 960, 450); o.globalAlpha = 1;
+      o.fillStyle = C.orange; o.fillRect(60, 80, 960 * k, 10); o.fillRect(60, 520, 960 * k, 10);
+      T('INSIDE A', 540, 170, 56, C.white, 'Press Start 2P', 'center', k);
+      T('ROCKET', 540, 275, 88, C.yellow, 'Press Start 2P', 'center', k);
+      T('ENGINE', 540, 385, 88, C.orange, 'Press Start 2P', 'center', k);
+      T('how it works + what falls off', 540, 475, 50, C.cyan, 'VT323', 'center', k);
+      if (p > 0.55) T("let's look inside!", 205 * S, 380 * S, 48, C.yellow, 'VT323', 'center', seg(p, 0.55, 0.65));
+    }
+  },
+  { // 1 — kesim: ichida nima bor
+    d: 8, key: 'cutaway', amp: 0.05, noWipe: true,
+    LABELS: [
+      ['FAIRING', -13, 22, -1, C.white, 'nose cover'], ['PAYLOAD', 6, 33, 1, C.yellow, 'the satellite'],
+      ['STAGE 2', -15, 75, -1, C.cyan, 'small top rocket'], ['OXYGEN', 8, 150, 1, C.lox, 'liquid, -183°C'],
+      ['FUEL', -8, 222, -1, C.fuel, 'kerosene'], ['BOOSTERS', 30, 235, 1, C.pink, 'extra push'],
+      ['ENGINES', -8, 296, -1, C.orange, '3 of them']
+    ],
+    art(lt, p) {
+      grid('#0b1030', '#16204a', 0);
+      const scan = 112 + easeInOut(seg(p, 0, 0.16)) * 320;
+      rocket(135, 112, 1, lt, { cut: 0 });
+      a.save(); a.beginPath(); a.rect(0, 0, W, scan); a.clip();
+      grid('#0b1030', '#16204a', 0); rocket(135, 112, 1, lt, { cut: 1 }); a.restore();
+      if (p < 0.18) { R(0, scan - 1, W, 2, C.cyan); glow(135, scan, 60, 'rgba(77,225,255,1)', 0.3); }
+    },
+    hud(lt, p) {
+      title(lt, [['WHAT\'S ', C.white], ['INSIDE?', C.yellow]], 'A rocket is mostly... tanks!');
+      this.LABELS.forEach(([t, x, y, sd, col, sub], i) => callout(t, 135 + x, 112 + y, sd, col, seg(p, 0.2 + i * 0.085, 0.27 + i * 0.085), sub));
+    }
+  },
+  { // 2 — yoqilg'i + kislorod
+    d: 6, key: 'fuel', amp: 0.2,
+    art(lt, p) { engine(lt, { flow: 0.2, pumpAng: lt * 0.8, fire: 0, exhaust: 0, focus: 'tanks' }); },
+    hud(lt, p) {
+      title(lt, [['1. ', C.yellow], ['FUEL', C.fuel], [' + ', C.white], ['OXYGEN', C.lox]], 'Fire needs oxygen...', '...space has none, so it brings its own');
+      tag('OXYGEN', 75, 150, C.white, 56, seg(p, 0.15, 0.22)); tag('-183°C', 75, 166, C.cyan, 44, seg(p, 0.2, 0.27));
+      tag('FUEL', 195, 150, C.white, 56, seg(p, 0.25, 0.32)); tag('kerosene', 195, 166, '#ffd2a0', 44, seg(p, 0.3, 0.37));
+    }
+  },
+  { // 3 — turbonasos
+    d: 6, key: 'pump', amp: 0.5, noWipe: true,
+    ang(lt) { return lt * 0.8 + Math.pow(lt, 3) * 0.9; },
+    art(lt, p) { engine(lt + 6, { flow: 0.2 + easeIn(p) * 0.8, pumpAng: this.ang(lt), pumpGlow: p, fire: 0, exhaust: 0, focus: 'pump' }); },
+    hud(lt, p) {
+      title(lt, [['2. ', C.yellow], ['TURBOPUMP', C.cyan]], 'Shoves it in, super fast', 'tons of fuel every second');
+      const rpm = Math.round(easeIn(p) * 30000 / 100) * 100;
+      T(rpm.toLocaleString('en-US'), 210 * S, 232 * S, 56, C.yellow, 'VT323');
+      T('RPM', 210 * S, 247 * S, 44, C.white, 'VT323');
+    }
+  },
+  { // 4 — yonish
+    d: 6, key: 'burn', amp: 0.9, noWipe: true,
+    art(lt, p) {
+      const fire = seg(p, 0.08, 0.2);
+      engine(lt + 12, { flow: 1, pumpAng: lt * 40, pumpGlow: 1, fire, exhaust: fire * 0.4, focus: 'chamber' });
+      // termometr
+      R(222, 270, 14, 110, '#8a93b8'); R(225, 273, 8, 104, '#141a38');
+      const hgt = 100 * easeOut(seg(p, 0.12, 0.6));
+      R(226, 376 - hgt, 6, hgt, hgt > 70 ? C.red : C.orange); circ(229, 384, 8, C.red);
+      R(218, 376 - 36, 22, 2, '#ffd2a0');
+    },
+    hud(lt, p) {
+      title(lt, [['3. ', C.yellow], ['COMBUSTION', C.orange]], 'Fuel + oxygen EXPLODE', 'a non-stop controlled explosion');
+      const temp = Math.round(3300 * easeOut(seg(p, 0.12, 0.6)) / 10) * 10;
+      T(temp.toLocaleString('en-US') + '°C', 229 * S, 258 * S, 54, C.red, 'VT323');
+      T('lava', 205 * S, 340 * S, 40, '#ffd2a0', 'VT323', 'center', seg(p, 0.4, 0.5));
+      if (p > 0.62) T('3x hotter than lava!', 135 * S, 435 * S, 54, C.yellow, 'VT323', 'center', seg(p, 0.62, 0.7));
+    }
+  },
+  { // 5 — soplo va reaktiv kuch
+    d: 6, key: 'nozzle', amp: 1, noWipe: true,
+    art(lt, p) {
+      engine(lt + 18, { flow: 1, pumpAng: lt * 40, pumpGlow: 1, fire: 1, exhaust: 0.4 + 0.6 * seg(p, 0, 0.15), focus: 'nozzle' });
+      const k = easeOut(seg(p, 0.3, 0.45));
+      if (k > 0) { arrow(215, 395, 215, 395 + 40 * k, C.orange, 4); arrow(55, 330, 55, 330 - 70 * k, C.green, 4); }
+    },
+    hud(lt, p) {
+      title(lt, [['4. ', C.yellow], ['NOZZLE', C.pink]], 'Squeeze... then let it blast', 'gas shoots DOWN = rocket goes UP');
+      tag('narrow', 95, 332, C.white, 44, seg(p, 0.12, 0.2)); tag('wide', 72, 392, C.white, 44, seg(p, 0.16, 0.24));
+      tag('GAS DOWN', 222, 382, C.orange, 46, seg(p, 0.35, 0.42));
+      tag('ROCKET UP', 55, 250, C.green, 46, seg(p, 0.35, 0.42));
+      if (p > 0.55) tag('~10,000 km/h', 135, 452, C.yellow, 52, seg(p, 0.55, 0.62));
+    }
+  },
+  { // 6 — boosterlar va 1-bosqich ajraladi
+    d: 6, key: 'stage1', amp: 1,
+    art(lt, p) {
+      sky(lerpCol('#1d2f80', '#050818', p), lerpCol('#5b8fe0', '#16245a', p));
+      stars(lt, p, 60);
+      for (let i = 0; i < 30; i++) { const y = (rnd(i) * 520 + lt * (300 + rnd(i + 1) * 200)) % 520 - 20; a.globalAlpha = 0.5; R(rnd(i + 4) * W, y, 1, 10 + rnd(i) * 14, '#cfe0ff'); }
+      a.globalAlpha = 1;
+      const b = easeIn(seg(p, 0.18, 1)), s = easeIn(seg(p, 0.55, 1));
+      const ign2 = seg(p, 0.66, 0.72);
+      rocket(135, 132, 0.72, lt, {
+        fl1: p < 0.52 ? 1 : 0, flB: p < 0.17 ? 1 : 0, fl2: ign2,
+        boost: { dx: b * 55, dy: b * 260, r: b * 1.6 },
+        s1: { dx: -s * 10, dy: s * 330, r: s * 0.9 }
+      });
+      if (p > 0.17 && p < 0.24) glow(135, 300, 70, 'rgba(255,240,200,1)', 0.9 * (1 - seg(p, 0.17, 0.24)));
+      if (p > 0.54 && p < 0.61) glow(135, 215, 70, 'rgba(255,240,200,1)', 0.9 * (1 - seg(p, 0.54, 0.61)));
+    },
+    hud(lt, p) {
+      title(lt, [['5. ', C.yellow], ['DROP THE ', C.white], ['EMPTY', C.pink]], 'Empty tanks = dead weight', 'so they fall off');
+      const b = easeIn(seg(p, 0.18, 1));
+      if (p > 0.18) { const al = seg(p, 0.2, 0.26) * (1 - seg(p, 0.5, 0.56)); tag('BOOSTERS', 135 + 55 * 0.72 + b * 40 + 30, 132 + (230 + b * 260) * 0.72 - 40, C.pink, 52, al); }
+      if (p > 0.56) tag('STAGE 1', 90, 132 + (200 + easeIn(seg(p, 0.55, 1)) * 330) * 0.72 - 30, C.cyan, 52, seg(p, 0.57, 0.62));
+      if (p > 0.68) tag('STAGE 2: ON!', 135, 236, C.cyan, 52, seg(p, 0.68, 0.74));
+    }
+  },
+  { // 7 — fairing ochiladi, sun'iy yo'ldosh chiqadi
+    d: 8, key: 'payload', amp: 0.4,
+    art(lt, p) {
+      R(0, 0, W, H, '#03040b'); stars(lt, 1, 110);
+      circ(135, 1080, 690, '#1f5fb8'); glow(135, 400, 170, 'rgba(120,200,255,1)', 0.35);
+      a.globalAlpha = 0.55; circ(135, 1082, 688, '#2f7bd8'); a.globalAlpha = 1;
+      for (let i = 0; i < 7; i++) cloud(((rnd(i) * 360 - lt * 6) % 360 + 360) % 360 - 40, 402 + rnd(i + 1) * 16, 30, 0.7);
+      const f = easeOut(seg(p, 0.14, 0.42)), sep = easeOut(seg(p, 0.46, 0.75)), pan = easeInOut(seg(p, 0.66, 0.86));
+      rocket(135, 150, 1.35, lt, {
+        boost: false, s1: false, fl2: p < 0.44 ? 1 : 0,
+        fairL: { dx: -f * 70, dy: f * 10, r: -f * 1.4 }, fairR: { dx: f * 70, dy: f * 10, r: f * 1.4 },
+        pay: { dx: 0, dy: -sep * 28 }, s2: { dx: 0, dy: sep * 120, r: sep * 0.35 }, panels: pan
+      });
+      if (p > 0.14 && p < 0.2) glow(135, 200, 40, 'rgba(255,240,200,1)', 0.8);
+    },
+    hud(lt, p) {
+      title(lt, [['6. ', C.yellow], ['DELIVERY', C.green]], 'Nose cover opens...', '...and the satellite is free');
+      const f = easeOut(seg(p, 0.14, 0.42));
+      tag('FAIRING', 135 - 70 * f - 10, 205, C.white, 48, seg(p, 0.2, 0.26) * (1 - seg(p, 0.55, 0.6)));
+      tag('FAIRING', 135 + 70 * f + 10, 205, C.white, 48, seg(p, 0.2, 0.26) * (1 - seg(p, 0.55, 0.6)));
+      if (p > 0.6) tag('STAGE 2', 135, 330, C.cyan, 46, seg(p, 0.6, 0.65) * (1 - seg(p, 0.9, 0.95)));
+      if (p > 0.7) tag('SOLAR PANELS', 135, 128, C.blue, 50, seg(p, 0.7, 0.76));
+      if (p > 0.86) {
+        const k = backOut(seg(p, 0.86, 0.93));
+        o.save(); o.translate(540, 1500); o.scale(k, k);
+        o.fillStyle = 'rgba(5,6,15,0.9)'; o.fillRect(-460, -70, 920, 140);
+        o.fillStyle = C.green; o.fillRect(-460, -70, 920, 8); o.fillRect(-460, 62, 920, 8);
+        T('SATELLITE DEPLOYED!', 0, 0, 44, C.green, 'Press Start 2P'); o.restore();
+      }
+    }
+  },
+  { // 8 — yakun
+    d: 6, key: 'end', amp: 0,
+    th(lt) { return -Math.PI / 2 + lt * 0.7; },
+    art(lt, p) {
+      R(0, 0, W, H, '#03040b'); stars(lt, 1, 110);
+      const ex = 135, ey = 250, er = 58;
+      glow(ex, ey, er + 26, 'rgba(100,190,255,1)', 0.45); circ(ex, ey, er, '#1f5fb8');
+      a.save(); a.beginPath(); a.arc(ex, ey, er, 0, Math.PI * 2); a.clip();
+      for (let i = 0; i < 10; i++) circ(((rnd(i) * 150 + lt * 6) % 150) + ex - 75, ey - 48 + rnd(i + 30) * 96, 7 + rnd(i + 2) * 11, '#3fa35a');
+      for (let i = 0; i < 8; i++) R(((rnd(i + 50) * 150 + lt * 10) % 150) + ex - 75, ey - 48 + rnd(i + 70) * 96, 14 + rnd(i) * 12, 3, 'rgba(255,255,255,0.75)');
+      a.fillStyle = 'rgba(0,0,30,0.45)'; a.beginPath(); a.arc(ex + 24, ey + 8, er + 6, 0, Math.PI * 2); a.fill(); a.restore();
+      for (let d = 0; d < 360; d += 7) { const r = d * Math.PI / 180; R(ex + Math.cos(r) * 92 - 1, ey + Math.sin(r) * 92 - 1, 2, 2, 'rgba(255,210,63,0.5)'); }
+      const th = this.th(lt);
+      a.save(); a.translate(ex + Math.cos(th) * 92, ey + Math.sin(th) * 92); a.rotate(th + Math.PI / 2); a.scale(0.7, 0.7); a.translate(0, -33); payload(1, lt); a.restore();
+    },
+    hud(lt, p) {
+      title(lt, [['MISSION ', C.white], ['COMPLETE', C.green]], 'Hundreds of tons on the pad...');
+      const k = backOut(seg(p, 0.15, 0.25));
+      o.save(); o.translate(540, 1490); o.scale(k, k);
+      o.fillStyle = 'rgba(5,6,15,0.9)'; o.fillRect(-470, -120, 940, 270);
+      o.fillStyle = C.yellow; o.fillRect(-470, -120, 940, 8); o.fillRect(-470, 142, 940, 8);
+      T('ONLY ~4%', 0, -40, 70, C.yellow, 'Press Start 2P');
+      T('of the rocket reaches orbit', 0, 60, 58, C.white, 'VT323');
+      o.restore();
+      if (p > 0.5) T('Follow for more  >>', 540, 1680, 54, C.cyan, 'VT323', 'center', seg(p, 0.5, 0.56));
+    }
+  }
+];
+let DURATION = SCENES.reduce((s, x) => s + x.d, 0);
+
+function lerpCol(c1, c2, k) {
+  const h = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+  const [r1, g1, b1] = h(c1), [r2, g2, b2] = h(c2);
+  return `rgb(${Math.round(lerp(r1, r2, k))},${Math.round(lerp(g1, g2, k))},${Math.round(lerp(b1, b2, k))})`;
+}
+function pad(t) {
+  sky('#24337e', '#ff9a5a'); stars(t, 0.5, 30);
+  glow(220, 420, 70, 'rgba(255,180,90,1)', 0.6); circ(220, 420, 16, '#ffd08a');
+  for (let i = 0; i < 4; i++) cloud(((rnd(i + 11) * 330 + t * 3) % 330) - 30, 150 + rnd(i + 2) * 120, 50, 0.35, '#ffd9e8');
+  R(0, 420, W, 60, '#1d2a2a'); R(0, 420, W, 3, '#2c3d3a'); R(90, 416, 90, 6, '#555a70');
+  const tx = 82, top = 200;
+  R(tx - 6, top, 3, 220, '#8a3a2a'); R(tx + 3, top, 3, 220, '#8a3a2a');
+  for (let y = top; y < 420; y += 10) R(tx - 6, y, 12, 2, '#8a3a2a');
+  R(tx - 8, top - 6, 16, 6, '#8a3a2a'); R(tx + 2, top - 10, 2, 4, C.red);
+  for (let i = 0; i < 6; i++) { const age = (t * 0.7 + i / 6) % 1; cloud(120 + i * 6 + age * 25 * (i % 2 ? 1 : -1), 416 - age * 30, 10 + age * 14, 0.5 * (1 - age)); }
+}
+
+// ===== Pastki panel: dvigatel "osillografi" + 6 qadam =====
+function hudBar(t, sc, lt) {
+  const y = 1740;
+  o.fillStyle = 'rgba(5,6,15,0.92)'; o.fillRect(30, y, 1020, 150);
+  o.fillStyle = '#2a3670'; o.fillRect(30, y, 1020, 6);
+  T('ENGINE', 60, y + 40, 22, '#8b93c7', 'Press Start 2P', 'left');
+  // osillograf: amplituda dvigatel holatiga bog'liq
+  const amp = sc.amp + (sc.key === 'stage1' ? -0.6 * seg(lt / sc.d, 0.5, 0.55) + 0.4 * seg(lt / sc.d, 0.66, 0.72) : 0);
+  o.strokeStyle = amp > 0.6 ? C.orange : amp > 0.15 ? C.yellow : C.green; o.lineWidth = 5;
+  o.beginPath();
+  for (let x = 0; x <= 400; x += 4) {
+    const v = Math.sin(x * 0.08 + t * 14) * 0.6 + Math.sin(x * 0.23 + t * 23) * 0.4 + (rnd(Math.floor(x / 4) + Math.floor(t * 30) * 101) - 0.5) * 0.8 * amp;
+    const yy = y + 100 + v * 32 * Math.max(0.08, amp);
+    x ? o.lineTo(60 + x, yy) : o.moveTo(60 + x, yy);
+  }
+  o.stroke();
+  const labs = ['fuel', 'pump', 'burn', 'nozzle', 'drop', 'deliver'];
+  const cols = [C.fuel, C.cyan, C.orange, C.pink, C.pink, C.green];
+  let acc = SCENES[0].d + SCENES[1].d;
+  for (let i = 0; i < 6; i++) {
+    const on = t >= acc; acc += SCENES[i + 2].d;
+    const cx = 540 + i * 88, cy = y + 52;
+    o.fillStyle = on ? cols[i] : '#22264a';
+    o.beginPath(); o.arc(cx, cy, 21, 0, Math.PI * 2); o.fill();
+    T(String(i + 1), cx, cy + 2, 18, on ? C.dark : '#5a6090', 'Press Start 2P');
+    T(labs[i], cx, y + 110, 30, on ? C.white : '#5a6090', 'VT323');
+  }
+}
+
+function pixelWipe(k) {
+  if (k >= 1) return;
+  const b = 15;
+  for (let gy = 0; gy < H / b; gy++) for (let gx = 0; gx < W / b; gx++)
+    if (rnd(gx * 31 + gy * 7) > k) R(gx * b, gy * b, b, b, '#05060f');
+}
+
+function renderFrame(t) {
+  let acc = 0, i = 0;
+  while (i < SCENES.length - 1 && t >= acc + SCENES[i].d) { acc += SCENES[i].d; i++; }
+  const sc = SCENES[i], lt = t - acc, p = clamp(lt / sc.d);
+  a.clearRect(0, 0, W, H);
+  sc.art(lt, p);
+  if (i > 0 && !sc.noWipe) pixelWipe(lt / 0.35);
+  o.imageSmoothingEnabled = false;
+  o.drawImage(art, 0, 0, W * S, H * S);
+  if (i === 0 || sc.noWipe || lt > 0.2) sc.hud(lt, p);
+  hudBar(t, sc, lt);
+  const f = seg(t, DURATION - 0.6, DURATION);
+  if (f > 0) { o.globalAlpha = f; o.fillStyle = '#000'; o.fillRect(0, 0, W * S, H * S); o.globalAlpha = 1; }
+}
+
+window.DURATION = DURATION;
+window.SCENE_DURS = SCENES.map(s => s.d);
+window.renderFrame = renderFrame;
+window.ready = Promise.all([document.fonts.load('40px "Press Start 2P"'), document.fonts.load('40px "VT323"')]);
+
+if (!location.search.includes('render')) {
+  window.ready.then(() => {
+    const t0 = performance.now();
+    (function loop() { renderFrame(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(loop); })();
+  });
+}
+</script>
+</body>
+</html>

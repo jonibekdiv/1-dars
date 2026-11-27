@@ -28,7 +28,9 @@ const PROJECTS = {
     })
   },
   // Faqat SFX: davomiyliklar sahifaning o'zida belgilangan
-  rocket: { page: 'rocket.html', audio: 'rocket_audio.py', out: 'how-a-rocket-reaches-orbit.mp4', durations: null }
+  rocket: { page: 'rocket.html', audio: 'rocket_audio.py', out: 'how-a-rocket-reaches-orbit.mp4', durations: null },
+  // Dvigatel ichi + ajraladigan qismlar, chiptune musiqa + SFX
+  engine: { page: 'engine.html', audio: 'engine_audio.py', out: 'inside-a-rocket-engine.mp4', durations: null }
 };
 
 const name = process.argv[2] || 'internet';
