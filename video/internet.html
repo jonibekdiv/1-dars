@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="uz">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Internet qanday ishlaydi?</title>
+<title>How the Internet Works</title>
 <style>
   @font-face { font-family: "Press Start 2P"; src: url("fonts/PressStart2P-Regular.ttf"); }
   @font-face { font-family: "VT323"; src: url("fonts/VT323-Regular.ttf"); }
@@ -156,17 +156,17 @@ const SCENES = [
       const k = easeOut(clamp(lt / 0.5));
       o.globalAlpha = 0.85 * k; o.fillStyle = '#05060f'; o.fillRect(60, 90, 960, 430); o.globalAlpha = 1;
       o.fillStyle = C.pink; o.fillRect(60, 90, 960 * k, 10); o.fillRect(60, 510, 960 * k, 10);
-      T('INTERNET', 540, 200, 92, C.yellow, 'Press Start 2P', 'center', k);
-      T('QANDAY', 540, 315, 60, C.white, 'Press Start 2P', 'center', k);
-      T('ISHLAYDI?', 540, 395, 60, C.white, 'Press Start 2P', 'center', k);
-      T('saytni ochgan 1 soniyangizda nima bo\'ladi', 540, 470, 46, C.cyan, 'VT323', 'center', k);
+      T('HOW DOES THE', 540, 175, 52, C.white, 'Press Start 2P', 'center', k);
+      T('INTERNET', 540, 285, 92, C.yellow, 'Press Start 2P', 'center', k);
+      T('WORK?', 540, 395, 60, C.white, 'Press Start 2P', 'center', k);
+      T('what happens in 1 second when you open a site', 540, 470, 46, C.cyan, 'VT323', 'center', k);
       browser(lt, seg(p, 0.25, 0.62), p < 0.7);
     }
   },
   { // 1 — so'rov / Wi-Fi
     d: 5.5,
     path(t) {
-      const p = t / 5.5;
+      const p = t / this.d;
       if (p < 0.4) { const k = easeInOut(seg(p, 0.05, 0.4)); return [lerp(136, 213, k), lerp(240, 196, k) - Math.sin(k * Math.PI) * 70]; }
       if (p < 0.66) return [213, 196 + Math.sin(t * 6) * 2];
       const k = easeInOut(seg(p, 0.66, 1)); return [lerp(213, 150, k), lerp(196, -30, k)];
@@ -184,19 +184,19 @@ const SCENES = [
     },
     hud(lt, p) {
       browser(lt, 1, false);
-      title(lt, [['1. ', C.yellow], ['SO\'ROV', C.white]], 'Brauzer xat yozadi:', '"Menga sahifani yubor!"');
+      title(lt, [['1. ', C.yellow], ['REQUEST', C.white]], 'Your browser writes:', '"Send me the page!"');
       const [x, y] = this.path(lt);
-      if (y > 20) T('GET /', x * S, (y - 24) * S, 48, C.yellow, 'VT323');
+      if (y > 118) T('GET /', x * S, (y - 24) * S, 48, C.yellow, 'VT323');
       if (p > 0.4 && p < 0.7) T('Wi-Fi router', 213 * S, 250 * S, 44, C.green, 'VT323');
     }
   },
   { // 2 — DNS
     d: 5.5,
     path(t) {
-      const p = t / 5.5;
+      const p = t / this.d;
       if (p < 0.25) { const k = easeOut(seg(p, 0, 0.25)); return [lerp(-20, 60, k), lerp(380, 150, k)]; }
       if (p < 0.72) return [60, 150 + Math.sin(t * 5) * 2];
-      const k = easeInOut(seg(p, 0.72, 1)); return [lerp(60, 300, k), lerp(150, 140, k) - Math.sin(k * Math.PI) * 40];
+      const k = easeInOut(seg(p, 0.72, 1)); return [lerp(60, 300, k), 150];
     },
     art(lt, p) {
       R(0, 0, W, H, '#0f1a3a');
@@ -211,10 +211,10 @@ const SCENES = [
       trail(t => this.path(t), lt); const [x, y] = this.path(lt); packet(x, y, lt, 2);
     },
     hud(lt, p) {
-      title(lt, [['2. ', C.yellow], ['DNS', C.cyan]], 'Internetning telefon kitobi', 'sayt nomi  ->  IP manzil');
+      title(lt, [['2. ', C.yellow], ['DNS', C.cyan]], 'The internet\'s phone book', 'site name  ->  IP address');
       const rows = [['youtube.com', '142.250.185.14'], ['telegram.org', '149.154.167.99'], ['wikipedia.org', '185.15.59.224'],
         ['github.com', '140.82.121.4'], ['google.com', '142.250.74.46'], ['openai.com', '104.18.33.45'], ['amazon.com', '52.94.236.248']];
-      T('QIDIRILMOQDA: google.com', 140 * S, 189 * S, 36, C.white, 'VT323', 'left');
+      T('LOOKING UP: google.com', 140 * S, 189 * S, 36, C.white, 'VT323', 'left');
       const hl = Math.min(4, Math.floor(seg(p, 0.22, 0.55) * 4.99));
       const found = p > 0.55;
       rows.forEach(([n, ip], i) => {
@@ -259,13 +259,13 @@ const SCENES = [
       packet(px, 374, lt, 2);
     },
     hud(lt, p) {
-      title(lt, [['3. ', C.yellow], ['KABEL', C.cyan]], 'Okean tubidagi optik tola', 'yorug\'lik 200 000 km/s tezlikda');
-      T('dunyo bo\'ylab 1,4 mln km kabel', 540, 1180, 54, '#bfe8ff', 'VT323');
+      title(lt, [['3. ', C.yellow], ['CABLES', C.cyan]], 'Fiber optics on the ocean floor', 'light at 200,000 km per second');
+      T('1.4 million km of cable worldwide', 540, 1180, 54, '#bfe8ff', 'VT323');
     }
   },
   { // 4 — server
     d: 5.5,
-    path(t) { const p = t / 5.5; const k = easeOut(seg(p, 0, 0.3)); return [lerp(300, 135, k), lerp(130, 260, k)]; },
+    path(t) { const p = t / this.d; const k = easeOut(seg(p, 0, 0.3)); return [lerp(300, 135, k), lerp(130, 260, k)]; },
     art(lt, p) {
       R(0, 0, W, H, '#0e0f1f');
       for (let y = 400; y < H; y += 10) R(0, y, W, 1, '#1c1e38'); R(0, 398, W, 3, '#26294a');
@@ -300,9 +300,9 @@ const SCENES = [
       return res;
     },
     hud(lt, p) {
-      title(lt, [['4. ', C.yellow], ['SERVER', C.green]], 'Ma\'lumotlar markazi', 'javobni bo\'laklarga bo\'ladi');
+      title(lt, [['4. ', C.yellow], ['SERVER', C.green]], 'A data center', 'splits the answer into packets');
       if (p > 0.42) {
-        const labs = ['HTML', 'CSS', 'JS', 'RASM', 'SHRIFT', 'IKONKA'];
+        const labs = ['HTML', 'CSS', 'JS', 'IMAGE', 'FONT', 'ICON'];
         this.kids(lt, p).forEach(([x, y], i) => T(labs[i], x * S, (y - 22) * S, 48, C.cyan, 'VT323', 'center', seg(p, 0.45 + i * 0.03, 0.55 + i * 0.03)));
       }
     }
@@ -333,22 +333,24 @@ const SCENES = [
       });
     },
     hud(lt, p) {
-      title(lt, [['5. ', C.yellow], ['SAHIFA', C.pink]], 'Paketlar qayta yig\'iladi');
+      title(lt, [['5. ', C.yellow], ['PAGE', C.pink]], 'Packets get put back together');
       if (p > 0.5) T('MySite', 50 * S, 183 * S, 40, '#ffffff', 'VT323', 'left', seg(p, 0.5, 0.55));
       if (p > 0.72) {
         const k = backOut(seg(p, 0.72, 0.8));
         o.save(); o.translate(540, 1420); o.scale(k, k);
         o.fillStyle = '#05060f'; o.globalAlpha = 0.85; o.fillRect(-470, -110, 940, 260); o.globalAlpha = 1;
         o.fillStyle = C.yellow; o.fillRect(-470, -110, 940, 8); o.fillRect(-470, 142, 940, 8);
-        T('JAMI: 0.3 SONIYA', 0, -30, 54, C.yellow, 'Press Start 2P');
-        T('ko\'z ochib yumguncha!', 0, 60, 60, C.white, 'VT323');
+        T('TOTAL: 0.3 SEC', 0, -30, 54, C.yellow, 'Press Start 2P');
+        T('faster than a blink!', 0, 60, 60, C.white, 'VT323');
         o.restore();
       }
-      if (p > 0.86) T('Obuna bo\'ling  >>  keyingi dars: HTML', 540, 1640, 48, C.cyan, 'VT323', 'center', seg(p, 0.86, 0.9));
+      if (p > 0.86) T('Follow  >>  next lesson: HTML', 540, 1640, 48, C.cyan, 'VT323', 'center', seg(p, 0.86, 0.9));
     }
   }
 ];
-const DURATION = SCENES.reduce((s, x) => s + x.d, 0);
+let DURATION = SCENES.reduce((s, x) => s + x.d, 0);
+// render.js ovoz uzunligiga qarab sahna davomiyliklarini o'rnatadi
+function setDurations(ds) { ds.forEach((d, i) => SCENES[i].d = d); DURATION = SCENES.reduce((s, x) => s + x.d, 0); window.DURATION = DURATION; }
 
 // Brauzer qatori (birinchi sahnalarda noutbuk ekranida)
 function browser(lt, typed, cursor) {
@@ -369,7 +371,7 @@ function hudBar(t) {
   o.fillStyle = '#2a3670'; o.fillRect(40, y, 1000, 6);
   const start = SCENES[0].d, end = DURATION - SCENES[5].d * 0.3;
   const ms = easeInOut(seg(t, start, end)) * 0.3;
-  T('VAQT', 80, y + 50, 26, '#8b93c7', 'Press Start 2P', 'left');
+  T('TIME', 80, y + 50, 26, '#8b93c7', 'Press Start 2P', 'left');
   T(ms.toFixed(3) + ' s', 80, y + 105, 44, C.yellow, 'Press Start 2P', 'left');
   let acc = 0;
   for (let i = 0; i < 5; i++) {
@@ -379,7 +381,7 @@ function hudBar(t) {
     o.fillStyle = on ? [C.yellow, C.cyan, C.cyan, C.green, C.pink][i] : '#22264a';
     o.beginPath(); o.arc(cx, cy, 26, 0, Math.PI * 2); o.fill();
     T(String(i + 1), cx, cy + 2, 26, on ? C.dark : '#5a6090', 'Press Start 2P', 'center');
-    T(['so\'rov', 'DNS', 'kabel', 'server', 'sahifa'][i], cx, y + 118, 34, on ? C.white : '#5a6090', 'VT323');
+    T(['request', 'DNS', 'cable', 'server', 'page'][i], cx, y + 118, 34, on ? C.white : '#5a6090', 'VT323');
   }
   
 }
@@ -409,6 +411,7 @@ function renderFrame(t) {
 }
 
 window.DURATION = DURATION;
+window.setDurations = setDurations;
 window.renderFrame = renderFrame;
 window.ready = Promise.all([
   document.fonts.load('40px "Press Start 2P"'), document.fonts.load('40px "VT323"')
